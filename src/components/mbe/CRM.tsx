@@ -19,7 +19,7 @@ const colorOptions = [
 ];
 
 export const CRM = () => {
-  const { stages, deals, addDeal, moveDeal, updateStage, addStage, removeStage } = useStore();
+  const { stages, deals, addDeal, moveDeal } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client: "", title: "", amount: "", stageId: stages[0]?.id ?? "new" });
 
