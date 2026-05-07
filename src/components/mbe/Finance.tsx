@@ -7,29 +7,41 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { Plus, Receipt, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Plus, Receipt, ArrowUpRight, ArrowDownRight, CalendarIcon } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 const ranges = { "7d": 7, "30d": 30, "90d": 90 } as const;
 type RangeKey = keyof typeof ranges;
 
 export const Finance = () => {
   const { transactions, addTransaction, deals, stages } = useStore();
-  const [range, setRange] = useState<RangeKey>("30d");
   const [compareMode, setCompareMode] = useState<"prev" | "custom">("prev");
   const [customFrom, setCustomFrom] = useState(format(subDays(new Date(), 60), "yyyy-MM-dd"));
   const [customTo, setCustomTo] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [open, setOpen] = useState(false);
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<RangeKey | "custom">("30d");
 
-  const days = ranges[range];
+  const days = activeTab !== "custom" ? ranges[activeTab as RangeKey] : 30;
   const now = new Date();
-  const start = subDays(now, days);
+
+  const start = customRange?.from && activeTab === "custom"
+    ? customRange.from
+    : subDays(now, days);
+  const end = customRange?.to && activeTab === "custom"
+    ? customRange.to
+    : now;
 
   const series = useMemo(() => {
     const arr: { date: string; income: number }[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = subDays(now, i);
+    const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    for (let i = totalDays; i >= 0; i--) {
+      const d = subDays(end, i);
       const key = format(d, "MMM d");
       const income = transactions
         .filter((t) => t.type === "income" && format(parseISO(t.date), "yyyy-MM-dd") === format(d, "yyyy-MM-dd"))
@@ -37,14 +49,14 @@ export const Finance = () => {
       arr.push({ date: key, income });
     }
     return arr;
-  }, [transactions, days]);
+  }, [transactions, start, end]);
 
   const totalIncome = transactions
-    .filter((t) => t.type === "income" && parseISO(t.date) >= start)
+    .filter((t) => t.type === "income" && isWithinInterval(parseISO(t.date), { start, end }))
     .reduce((s, t) => s + t.amount, 0);
 
   const totalExpense = transactions
-    .filter((t) => t.type === "expense" && parseISO(t.date) >= start)
+    .filter((t) => t.type === "expense" && isWithinInterval(parseISO(t.date), { start, end }))
     .reduce((s, t) => s + t.amount, 0);
 
   const compareTotal = useMemo(() => {
@@ -65,6 +77,12 @@ export const Finance = () => {
   const diffPct = compareTotal > 0 ? Math.round(((totalIncome - compareTotal) / compareTotal) * 100) : 0;
   const completedDeals = deals.filter((d) => d.stageId === "completed");
 
+  const rangeLabel = activeTab === "custom" && customRange?.from
+    ? customRange.to
+      ? `${format(customRange.from, "MMM d")} — ${format(customRange.to, "MMM d, yyyy")}`
+      : format(customRange.from, "MMM d, yyyy")
+    : `${format(start, "MMM d")} — ${format(now, "MMM d, yyyy")}`;
+
   return (
     <div className="fade-in">
       <SectionHeader
@@ -72,22 +90,76 @@ export const Finance = () => {
         subtitle="Income overview, comparisons, and synced deal payments."
         action={
           <div className="flex items-center gap-2">
-            <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+            <Tabs
+              value={activeTab !== "custom" ? activeTab : ""}
+              onValueChange={(v) => {
+                setActiveTab(v as RangeKey);
+                setCustomRange(undefined);
+              }}
+            >
               <TabsList className="bg-secondary">
                 <TabsTrigger value="7d">7D</TabsTrigger>
                 <TabsTrigger value="30d">30D</TabsTrigger>
                 <TabsTrigger value="90d">90D</TabsTrigger>
               </TabsList>
             </Tabs>
+
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={activeTab === "custom" ? "default" : "outline"}
+                  className="h-9 text-xs gap-1.5"
+                  onClick={() => setActiveTab("custom")}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {customRange?.from
+                    ? customRange.to
+                      ? `${format(customRange.from, "MMM d")} — ${format(customRange.to, "MMM d")}`
+                      : format(customRange.from, "MMM d")
+                    : "Custom"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-auto p-0 bg-card border-border"
+                align="end"
+              >
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(range) => {
+                    setCustomRange(range);
+                    if (range?.from && range?.to) {
+                      setCalendarOpen(false);
+                    }
+                  }}
+                  numberOfMonths={2}
+                  disabled={{ after: now }}
+                  className="bg-card text-foreground"
+                />
+              </PopoverContent>
+            </Popover>
+
             <AddSaleDialog open={open} setOpen={setOpen} onAdd={addTransaction} />
           </div>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Stat label={`Total income (${range})`} value={`$${totalIncome.toLocaleString()}`} delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`} />
-        <Stat label="Expenses" value={`$${totalExpense.toLocaleString()}`} delta={`${transactions.filter((t) => t.type === "expense").length} entries`} />
-        <Stat label="Completed deals" value={`${completedDeals.length}`} delta={`Synced from CRM`} />
+        <Stat
+          label={`Total income (${activeTab === "custom" ? "custom" : activeTab})`}
+          value={`$${totalIncome.toLocaleString()}`}
+          delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`}
+        />
+        <Stat
+          label="Expenses"
+          value={`$${totalExpense.toLocaleString()}`}
+          delta={`${transactions.filter((t) => t.type === "expense").length} entries`}
+        />
+        <Stat
+          label="Completed deals"
+          value={`${completedDeals.length}`}
+          delta="Synced from CRM"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -95,11 +167,13 @@ export const Finance = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-sm font-medium">Income trend</div>
-              <div className="text-xs text-muted-foreground">{format(start, "MMM d")} — {format(now, "MMM d, yyyy")}</div>
+              <div className="text-xs text-muted-foreground">{rangeLabel}</div>
             </div>
             <div className="flex items-center gap-2">
               <Select value={compareMode} onValueChange={(v) => setCompareMode(v as "prev" | "custom")}>
-                <SelectTrigger className="w-[170px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[170px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="prev">Compare: previous month</SelectItem>
                   <SelectItem value="custom">Compare: custom range</SelectItem>
@@ -107,9 +181,19 @@ export const Finance = () => {
               </Select>
               {compareMode === "custom" && (
                 <div className="flex items-center gap-1">
-                  <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="h-8 w-[140px] text-xs"
+                  />
                   <span className="text-muted-foreground text-xs">→</span>
-                  <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="h-8 w-[140px] text-xs"
+                  />
                 </div>
               )}
             </div>
@@ -127,7 +211,12 @@ export const Finance = () => {
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip
-                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 12, color: "hsl(var(--foreground))" }}
+                  contentStyle={{
+                    background: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 12,
+                    color: "hsl(var(--foreground))",
+                  }}
                   formatter={(v: number) => [`$${v.toLocaleString()}`, "Income"]}
                 />
                 <Area type="monotone" dataKey="income" stroke="hsl(var(--foreground))" strokeWidth={2} fill="url(#g)" />
@@ -146,7 +235,9 @@ export const Finance = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium truncate">{t.label}</div>
-                  <div className="text-[10px] text-muted-foreground">{format(parseISO(t.date), "MMM d, yyyy")} {t.receipt && `• ${t.receipt}`}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {format(parseISO(t.date), "MMM d, yyyy")} {t.receipt && `• ${t.receipt}`}
+                  </div>
                 </div>
                 <div className={`text-xs font-semibold ${t.type === "income" ? "text-foreground" : "text-muted-foreground"}`}>
                   {t.type === "income" ? "+" : "−"}${t.amount.toLocaleString()}
@@ -169,12 +260,22 @@ export const Finance = () => {
               <div key={d.id} className="rounded-xl bg-secondary/50 p-4 hairline">
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-muted-foreground">{d.client}</div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: `hsl(var(--${stage?.color}) / 0.15)`, color: `hsl(var(--${stage?.color}))` }}>{stage?.label}</span>
+                  <span
+                    className="text-[10px] px-2 py-0.5 rounded-full"
+                    style={{
+                      background: `hsl(var(--${stage?.color}) / 0.15)`,
+                      color: `hsl(var(--${stage?.color}))`,
+                    }}
+                  >
+                    {stage?.label}
+                  </span>
                 </div>
                 <div className="mt-1 font-medium">{d.title}</div>
                 <div className="mt-3 flex items-center justify-between">
                   <div className="text-lg font-semibold">${d.amount.toLocaleString()}</div>
-                  <div className="text-[10px] flex items-center gap-1 text-muted-foreground"><Receipt className="h-3 w-3" /> Receipt issued</div>
+                  <div className="text-[10px] flex items-center gap-1 text-muted-foreground">
+                    <Receipt className="h-3 w-3" /> Receipt issued
+                  </div>
                 </div>
               </div>
             );
@@ -185,21 +286,40 @@ export const Finance = () => {
   );
 };
 
-const AddSaleDialog = ({ open, setOpen, onAdd }: { open: boolean; setOpen: (b: boolean) => void; onAdd: (t: any) => void }) => {
+const AddSaleDialog = ({
+  open,
+  setOpen,
+  onAdd,
+}: {
+  open: boolean;
+  setOpen: (b: boolean) => void;
+  onAdd: (t: any) => void;
+}) => {
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"income" | "expense">("income");
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="h-9"><Plus className="h-4 w-4 mr-1" /> Add sale</Button>
+        <Button className="h-9">
+          <Plus className="h-4 w-4 mr-1" /> Add sale
+        </Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>Record a transaction</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Record a transaction</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
-          <div><Label>Description</Label><Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Client name — Service" /></div>
+          <div>
+            <Label>Description</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Client name — Service" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+            <div>
+              <Label>Amount</Label>
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </div>
             <div>
               <Label>Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as "income" | "expense")}>
@@ -215,9 +335,19 @@ const AddSaleDialog = ({ open, setOpen, onAdd }: { open: boolean; setOpen: (b: b
         <DialogFooter>
           <Button onClick={() => {
             if (!label || !amount) return;
-            onAdd({ label, amount: Number(amount), type, date: new Date().toISOString(), receipt: type === "income" ? `RCPT-${1000 + Math.floor(Math.random() * 9000)}` : undefined });
-            setLabel(""); setAmount(""); setOpen(false);
-          }}>Save</Button>
+            onAdd({
+              label,
+              amount: Number(amount),
+              type,
+              date: new Date().toISOString(),
+              receipt: type === "income" ? `RCPT-${1000 + Math.floor(Math.random() * 9000)}` : undefined,
+            });
+            setLabel("");
+            setAmount("");
+            setOpen(false);
+          }}>
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -9,11 +9,12 @@ import { Plus, Minus, AlertTriangle, Package } from "lucide-react";
 
 export const Inventory = () => {
   const { inventory, addInventory, updateStock } = useStore();
+  const findName = (id: string) => inventory.find((x) => x.id === id)?.name ?? "?";
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", sku: "", stock: "", threshold: "", price: "" });
 
-  const totalValue = inventory.reduce((s, i) => s + i.stock * i.price, 0);
-  const low = inventory.filter((i) => i.stock <= i.threshold);
+  const totalValue = inventory.filter((i) => !i.isProduct).reduce((s, i) => s + i.stock * i.price, 0);
+  const low = inventory.filter((i) => !i.isProduct && i.stock <= i.threshold);
 
   return (
     <div className="fade-in">
@@ -71,17 +72,31 @@ export const Inventory = () => {
         <div className="text-sm font-medium mb-3">Stock</div>
         <div className="divide-y divide-border">
           {inventory.map((i) => {
-            const isLow = i.stock <= i.threshold;
+            const isLow = !i.isProduct && i.stock <= i.threshold;
             return (
               <div key={i.id} className="flex items-center gap-4 py-3">
                 <div className="h-10 w-10 rounded-lg bg-secondary grid place-items-center"><Package className="h-4 w-4" /></div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{i.name}</div>
-                  <div className="text-xs text-muted-foreground">SKU {i.sku} • ${i.price}</div>
+                  <div className="font-medium truncate flex items-center gap-2">
+                    {i.name}
+                    {i.isProduct && <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-foreground text-background">Product</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">SKU {i.sku} • ${i.price} {i.unit && `/ ${i.unit}`}</div>
+                  {i.recipe && i.recipe.length > 0 && (
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                      Recipe: {i.recipe.map((r) => `${r.qty} ${findName(r.itemId)}`).join(" + ")}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right mr-3">
-                  <div className={`text-sm font-semibold ${isLow ? "text-destructive" : ""}`}>{i.stock} in stock</div>
-                  <div className="text-[10px] text-muted-foreground">threshold {i.threshold}</div>
+                  {i.isProduct ? (
+                    <div className="text-[10px] text-muted-foreground">auto from recipe</div>
+                  ) : (
+                    <>
+                      <div className={`text-sm font-semibold ${isLow ? "text-destructive" : ""}`}>{i.stock} {i.unit || ""}</div>
+                      <div className="text-[10px] text-muted-foreground">threshold {i.threshold}</div>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="icon" variant="secondary" className="h-8 w-8" onClick={() => updateStock(i.id, -1)}><Minus className="h-3 w-3" /></Button>

@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Sidebar, Section } from "@/components/mbe/Sidebar";
+import { Dashboard } from "@/components/mbe/Dashboard";
+import { POS } from "@/components/mbe/POS";
 import { Finance } from "@/components/mbe/Finance";
 import { Inventory } from "@/components/mbe/Inventory";
 import { CRM } from "@/components/mbe/CRM";
+import { Customers } from "@/components/mbe/Customers";
 import { TaskList } from "@/components/mbe/TaskList";
 import { Profile, SettingsPage } from "@/components/mbe/Misc";
 import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const Index = () => {
-  const [active, setActive] = useState<Section>("finance");
+  const [active, setActive] = useState<Section>("dashboard");
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
@@ -29,9 +32,12 @@ const Index = () => {
         </header>
 
         <main className="flex-1 p-8 overflow-auto">
+          {active === "dashboard" && <Dashboard onGoto={(s) => setActive(s as Section)} />}
+          {active === "pos" && <POS />}
           {active === "finance" && <Finance />}
           {active === "inventory" && <Inventory />}
           {active === "crm" && <CRM />}
+          {active === "customers" && <Customers />}
           {active === "tasks" && <TaskList />}
           {active === "profile" && <Profile />}
           {active === "settings" && <SettingsPage />}

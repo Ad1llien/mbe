@@ -1,13 +1,16 @@
 import { Logo } from "./Logo";
-import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User } from "lucide-react";
+import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Section = "finance" | "inventory" | "crm" | "tasks" | "profile" | "settings";
+export type Section = "dashboard" | "pos" | "finance" | "inventory" | "crm" | "customers" | "tasks" | "profile" | "settings";
 
 const items: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: "dashboard", label: "Pulse", icon: Activity },
+  { id: "pos", label: "POS", icon: ShoppingBag },
   { id: "finance", label: "Finance", icon: Wallet },
   { id: "inventory", label: "Inventory", icon: Boxes },
   { id: "crm", label: "CRM", icon: Users },
+  { id: "customers", label: "Customers", icon: User },
   { id: "tasks", label: "Task List", icon: ListChecks },
 ];
 
