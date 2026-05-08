@@ -9,7 +9,7 @@ import { Plus, Clock, Trash2, Check } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow, differenceInMinutes } from "date-fns";
 
 export const TaskList = () => {
-  const { tasks, addTask, toggleTask, removeTask } = useStore();
+  const { tasks, addTask, toggleTask, removeTask, clearCompletedTasks } = useStore();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -83,12 +83,20 @@ export const TaskList = () => {
         </Panel>
 
         <Panel>
-          <div className="text-sm font-medium mb-3">Completed</div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-medium">Completed</div>
+            {done.length > 0 && (
+              <Button size="sm" variant="ghost" className="h-7 text-[11px] text-muted-foreground hover:text-destructive" onClick={clearCompletedTasks}>
+                <Trash2 className="h-3 w-3 mr-1" /> Clear completed
+              </Button>
+            )}
+          </div>
           <div className="space-y-2">
             {done.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/30 opacity-60">
+              <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/30 opacity-70">
                 <button onClick={() => toggleTask(t.id)} className="h-5 w-5 rounded-md bg-foreground text-background grid place-items-center"><Check className="h-3 w-3" /></button>
                 <div className="text-xs line-through truncate flex-1">{t.title}</div>
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeTask(t.id)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             ))}
             {done.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">Nothing yet</div>}

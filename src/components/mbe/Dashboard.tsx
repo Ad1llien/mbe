@@ -51,10 +51,10 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Stat label="Revenue today" value={`$${revenueToday.toFixed(2)}`} delta={`${todayReceipts.length} receipts`} />
-        <Stat label="Expenses today" value={`$${expensesToday.toFixed(2)}`} delta="manual entries" />
-        <Stat label="Net profit (est.)" value={`${profit >= 0 ? "+" : "−"}$${Math.abs(profit).toFixed(2)}`} delta={profit >= 0 ? "in the green" : "in the red"} />
-        <Stat label="Critical stock" value={`${critical.length}`} delta={critical.length ? "action needed" : "all good"} />
+        <Stat label="Revenue today" value={`$${revenueToday.toFixed(2)}`} delta={`${todayReceipts.length} receipts`} tone={revenueToday > 0 ? "pos" : "neutral"} />
+        <Stat label="Expenses today" value={`$${expensesToday.toFixed(2)}`} delta="manual entries" tone={expensesToday > 0 ? "neg" : "neutral"} />
+        <Stat label="Net profit (est.)" value={`${profit >= 0 ? "+" : "−"}$${Math.abs(profit).toFixed(2)}`} delta={profit > 0 ? "in the green" : profit < 0 ? "in the red" : "break-even"} tone={profit > 0 ? "pos" : profit < 0 ? "neg" : "neutral"} />
+        <Stat label="Critical stock" value={`${critical.length}`} delta={critical.length ? "action needed" : "all good"} tone={critical.length ? "neg" : "pos"} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

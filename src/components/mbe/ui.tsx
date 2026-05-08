@@ -15,10 +15,18 @@ export const SectionHeader = ({ title, subtitle, action }: { title: string; subt
   </div>
 );
 
-export const Stat = ({ label, value, delta }: { label: string; value: string; delta?: string }) => (
-  <Panel>
-    <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{label}</div>
-    <div className="mt-2 text-3xl font-semibold tracking-tight">{value}</div>
-    {delta && <div className="mt-1 text-xs text-muted-foreground">{delta}</div>}
-  </Panel>
-);
+export const Stat = ({
+  label, value, delta, tone,
+}: { label: string; value: string; delta?: string; tone?: "pos" | "neg" | "neutral" | "auto"; }) => {
+  const toneClass =
+    tone === "pos" ? "text-[hsl(var(--stage-completed))]" :
+    tone === "neg" ? "text-[hsl(var(--stage-new))]" :
+    tone === "neutral" ? "text-foreground" : "";
+  return (
+    <Panel>
+      <div className="text-[11px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={cn("mt-2 text-3xl font-semibold tracking-tight", toneClass)}>{value}</div>
+      {delta && <div className="mt-1 text-xs text-muted-foreground">{delta}</div>}
+    </Panel>
+  );
+};

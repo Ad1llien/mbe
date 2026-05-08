@@ -53,6 +53,13 @@ export type Customer = {
   name?: string;
   note?: string;
   createdAt: string;
+  email?: string;
+  source?: string;
+  socialHandle?: string;
+  city?: string;
+  birthday?: string;
+  tags?: string[];
+  status?: "lead" | "active" | "vip" | "inactive";
 };
 
 export type CartLine = { itemId: string; name: string; price: number; qty: number };
@@ -174,6 +181,9 @@ type State = {
   addTask: (t: Omit<Task, "id" | "done">) => void;
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
+  clearCompletedTasks: () => void;
+  clearLostDeals: () => void;
+  removeDeal: (id: string) => void;
 
   // customers (kept in store, UI tab removed)
   addCustomer: (c: Omit<Customer, "id" | "createdAt">) => Customer;
@@ -251,8 +261,11 @@ export const useStore = create<State>((set, get) => ({
     { id: uid(), title: "Review yesterday's Z-report", due: new Date(today.getTime() + 86400000).toISOString(), done: false },
   ],
   customers: [
-    { id: uid(), phone: "+1 555 0142", name: "Anna", note: "Allergic to peanuts • likes window seat", createdAt: daysAgo(6) },
-    { id: uid(), phone: "+1 555 0177", name: "Marco", note: "Always orders double espresso", createdAt: daysAgo(2) },
+    { id: uid(), phone: "+1 555 0142", name: "Anna Petrova", email: "anna.p@gmail.com", source: "Instagram", socialHandle: "@anna.coffee", city: "Almaty", note: "Allergic to peanuts • likes window seat", createdAt: daysAgo(6), tags: ["loyal", "allergy"], status: "vip" },
+    { id: uid(), phone: "+1 555 0177", name: "Marco Silva", email: "marco@nova.studio", source: "Referral", socialHandle: "@marco.s", city: "Lisbon", note: "Always orders double espresso", createdAt: daysAgo(2), tags: ["regular"], status: "active" },
+    { id: uid(), phone: "+1 555 0203", name: "Acme Corp", email: "billing@acme.io", source: "Website", city: "NYC", note: "Annual retainer client", createdAt: daysAgo(40), tags: ["b2b"], status: "active" },
+    { id: uid(), phone: "+1 555 0210", name: "Nova Studio", email: "hi@nova.studio", source: "Instagram", socialHandle: "@novastudio", city: "Berlin", createdAt: daysAgo(10), tags: ["b2b", "design"], status: "lead" },
+    { id: uid(), phone: "+1 555 0299", name: "Helix Labs", email: "ops@helix.dev", source: "TikTok", city: "SF", createdAt: daysAgo(20), tags: ["b2b", "platform"], status: "vip" },
   ],
   heldOrders: [
     { id: uid(), label: "Table 4", lines: [
@@ -336,6 +349,9 @@ export const useStore = create<State>((set, get) => ({
   addTask: (t) => set((s) => ({ tasks: [...s.tasks, { ...t, id: uid(), done: false }] })),
   toggleTask: (id) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) })),
   removeTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+  clearCompletedTasks: () => set((s) => ({ tasks: s.tasks.filter((t) => !t.done) })),
+  clearLostDeals: () => set((s) => ({ deals: s.deals.filter((d) => d.stageId !== "lost") })),
+  removeDeal: (id) => set((s) => ({ deals: s.deals.filter((d) => d.id !== id) })),
 
   addCustomer: (c) => {
     const cust = { ...c, id: uid(), createdAt: new Date().toISOString() };

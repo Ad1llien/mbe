@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Settings2, Pencil, CalendarDays } from "lucide-react";
+import { Plus, Settings2, Pencil, CalendarDays, Search, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { CalendarDialog } from "./Calendar";
+import { CustomerDetailDialog } from "./CustomerDetailDialog";
 
 const colorOptions = [
   { id: "stage-new", label: "Red" },
@@ -20,11 +21,34 @@ const colorOptions = [
 ];
 
 export const CRM = () => {
-  const { stages, deals, addDeal, moveDeal } = useStore();
+  const { stages, deals, customers, addDeal, moveDeal, clearLostDeals } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client: "", title: "", amount: "", stageId: stages[0]?.id ?? "new" });
   const [calOpen, setCalOpen] = useState(false);
   const [calCtx, setCalCtx] = useState<{ client?: string; title?: string; dealId?: string }>({});
+  const [query, setQuery] = useState("");
+  const [clientOpen, setClientOpen] = useState(false);
+  const [clientSel, setClientSel] = useState<{ name: string; id?: string } | null>(null);
+
+  const lostCount = deals.filter((d) => d.stageId === "lost").length;
+
+  const filteredDeals = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return deals;
+    return deals.filter((d) =>
+      d.client.toLowerCase().includes(q) ||
+      d.title.toLowerCase().includes(q) ||
+      String(d.amount).includes(q),
+    );
+  }, [deals, query]);
+
+  const openClient = (clientName: string) => {
+    const cust = customers.find((c) => c.name?.toLowerCase() === clientName.toLowerCase());
+    setClientSel({ name: clientName, id: cust?.id });
+    setClientOpen(true);
+  };
+
+  const selectedCustomer = clientSel?.id ? customers.find((c) => c.id === clientSel.id) ?? null : null;
 
   return (
     <div className="fade-in">
@@ -32,9 +56,27 @@ export const CRM = () => {
         title="CRM"
         subtitle="Pipeline synced with Finance — completed deals issue receipts automatically."
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search client, deal, amount…"
+                className="pl-8 h-9 w-[240px] bg-secondary border-transparent"
+              />
+            </div>
             <Button variant="secondary" className="h-9" onClick={() => { setCalCtx({}); setCalOpen(true); }}>
               <CalendarDays className="h-4 w-4 mr-1" /> Calendar
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-9 text-muted-foreground hover:text-destructive"
+              onClick={clearLostDeals}
+              disabled={lostCount === 0}
+              title="Remove all deals in the Lost stage"
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Clear Lost{lostCount > 0 ? ` (${lostCount})` : ""}
             </Button>
             <CustomizeStages />
             <Dialog open={open} onOpenChange={setOpen}>
@@ -71,7 +113,7 @@ export const CRM = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
         {stages.map((stage) => {
-          const stageDeals = deals.filter((d) => d.stageId === stage.id);
+          const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
           const total = stageDeals.reduce((s, d) => s + d.amount, 0);
           return (
             <Panel key={stage.id} className="min-h-[420px]">
@@ -84,9 +126,14 @@ export const CRM = () => {
               </div>
               <div className="space-y-2">
                 {stageDeals.map((d) => (
-                  <div key={d.id} className="rounded-lg bg-secondary/60 p-3 hairline group relative">
+                  <div
+                    key={d.id}
+                    className="rounded-lg bg-secondary/60 p-3 hairline group relative cursor-pointer hover:bg-secondary transition-colors"
+                    onClick={() => openClient(d.client)}
+                    title="Open client details"
+                  >
                     <button
-                      onClick={() => { setCalCtx({ client: d.client, title: d.title, dealId: d.id }); setCalOpen(true); }}
+                      onClick={(e) => { e.stopPropagation(); setCalCtx({ client: d.client, title: d.title, dealId: d.id }); setCalOpen(true); }}
                       className="absolute top-2 right-2 h-6 w-6 grid place-items-center rounded-md bg-background/60 hover:bg-foreground hover:text-background transition-all opacity-70 hover:opacity-100"
                       title="Schedule appointment"
                     >
@@ -98,10 +145,12 @@ export const CRM = () => {
                       <div className="text-sm font-semibold">${d.amount.toLocaleString()}</div>
                       <div className="text-[10px] text-muted-foreground">{format(parseISO(d.createdAt), "MMM d")}</div>
                     </div>
-                    <Select value={d.stageId} onValueChange={(v) => moveDeal(d.id, v)}>
-                      <SelectTrigger className="h-7 mt-2 text-[11px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>{stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Select value={d.stageId} onValueChange={(v) => moveDeal(d.id, v)}>
+                        <SelectTrigger className="h-7 mt-2 text-[11px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>{stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
                 {stageDeals.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">No deals</div>}
@@ -117,6 +166,13 @@ export const CRM = () => {
         defaultClient={calCtx.client}
         defaultTitle={calCtx.title}
         dealId={calCtx.dealId}
+      />
+
+      <CustomerDetailDialog
+        open={clientOpen}
+        onOpenChange={setClientOpen}
+        customer={selectedCustomer}
+        fallbackName={clientSel?.name}
       />
     </div>
   );

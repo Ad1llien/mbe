@@ -144,16 +144,24 @@ export const Finance = () => {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Stat
           label={`Total income (${activeTab === "custom" ? "custom" : activeTab})`}
           value={`$${totalIncome.toLocaleString()}`}
           delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`}
+          tone={totalIncome > 0 ? "pos" : "neutral"}
         />
         <Stat
           label="Expenses"
           value={`$${totalExpense.toLocaleString()}`}
           delta={`${transactions.filter((t) => t.type === "expense").length} entries`}
+          tone={totalExpense > 0 ? "neg" : "neutral"}
+        />
+        <Stat
+          label="Net (income − expenses)"
+          value={`${totalIncome - totalExpense >= 0 ? "+" : "−"}$${Math.abs(totalIncome - totalExpense).toLocaleString()}`}
+          delta={totalIncome - totalExpense > 0 ? "profit" : totalIncome - totalExpense < 0 ? "loss" : "break-even"}
+          tone={totalIncome - totalExpense > 0 ? "pos" : totalIncome - totalExpense < 0 ? "neg" : "neutral"}
         />
         <Stat
           label="Completed deals"

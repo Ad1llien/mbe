@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,19 @@ export const Premium = () => {
   const daysLeft = differenceInDays(parseISO(subscription.renewsAt), new Date());
   const [cardOpen, setCardOpen] = useState(false);
   const [card, setCard] = useState({ number: `**** **** **** ${subscription.cardLast4}`, expiry: subscription.cardExpiry, cvv: "", brand: subscription.cardBrand });
+  const planCardRef = useRef<HTMLDivElement>(null);
+  const [mouse, setMouse] = useState<{ x: number; y: number; active: boolean }>({ x: 50, y: 50, active: false });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = planCardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setMouse({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+      active: true,
+    });
+  };
 
   return (
     <div className="fade-in">
@@ -32,10 +45,22 @@ export const Premium = () => {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Panel className="lg:col-span-2 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-[hsl(var(--stage-progress)/0.18)] blur-2xl" />
+        <div className="lg:col-span-2 relative overflow-hidden rounded-2xl bg-card hairline p-5"
+          ref={planCardRef}
+          onMouseMove={handleMouseMove}
+          onMouseEnter={() => setMouse((m) => ({ ...m, active: true }))}
+          onMouseLeave={() => setMouse((m) => ({ ...m, active: false }))}
+        >
+          <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-[hsl(var(--stage-completed)/0.18)] blur-2xl pointer-events-none" />
+          <div
+            className="absolute inset-0 transition-opacity duration-500 pointer-events-none"
+            style={{
+              background: `radial-gradient(520px circle at ${mouse.x}% ${mouse.y}%, hsl(var(--stage-completed) / 0.32), hsl(var(--stage-completed) / 0.08) 35%, transparent 65%)`,
+              opacity: mouse.active ? 1 : 0.35,
+            }}
+          />
           <div className="relative">
-            <div className="flex items-center gap-2 text-[hsl(var(--stage-progress))]">
+            <div className="flex items-center gap-2 text-[hsl(var(--stage-completed))]">
               <Crown className="h-5 w-5" />
               <span className="text-[11px] uppercase tracking-widest font-semibold">Current plan</span>
             </div>
@@ -84,7 +109,7 @@ export const Premium = () => {
               <Button variant="ghost" className="h-9 text-destructive hover:text-destructive" onClick={() => updateSubscription({ status: "canceled", autoRenew: false })}>Cancel subscription</Button>
             </div>
           </div>
-        </Panel>
+        </div>
 
         <Panel>
           <div className="text-sm font-medium mb-3">Billing health</div>
