@@ -85,7 +85,53 @@ export type AuditEvent = {
   severity: "info" | "warn" | "alert";
 };
 
+export type Appointment = {
+  id: string;
+  dealId?: string;
+  title: string;
+  clients: string[]; // client names; multiple allowed at same slot
+  start: string; // ISO
+  duration: number; // minutes (multiples of 15)
+  color?: string; // stage color id
+  note?: string;
+};
+
+export type StaffRole = "owner" | "manager" | "cashier" | "barista" | "sales";
+
+export type Staff = {
+  id: string;
+  name: string;
+  role: StaffRole;
+  phone?: string;
+  email?: string;
+  pin: string; // 8-digit
+  hiredAt: string;
+  kpiTarget?: number; // monthly deals
+};
+
+export type Shift = {
+  id: string;
+  staffId: string;
+  start: string;
+  end?: string;
+};
+
+export type PremiumPlan = "Starter" | "Pro" | "Business" | "Enterprise";
+
+export type Subscription = {
+  plan: PremiumPlan;
+  priceMonthly: number;
+  status: "active" | "trial" | "past_due" | "canceled";
+  startedAt: string;
+  renewsAt: string; // next charge
+  cardBrand: string;
+  cardLast4: string;
+  cardExpiry: string; // MM/YY
+  autoRenew: boolean;
+};
+
 const uid = () => Math.random().toString(36).slice(2, 9);
+const pin = () => Math.floor(10_000_000 + Math.random() * 89_999_999).toString();
 
 type State = {
   stages: Stage[];
@@ -97,6 +143,12 @@ type State = {
   heldOrders: HeldOrder[];
   receipts: Receipt[];
   audit: AuditEvent[];
+  appointments: Appointment[];
+  staff: Staff[];
+  shifts: Shift[];
+  subscription: Subscription;
+  prepInstructions: Record<string, string>; // itemId -> markdown
+  recipeNotes?: string;
 
   // crm
   addStage: () => void;
@@ -104,6 +156,11 @@ type State = {
   removeStage: (id: string) => void;
   addDeal: (d: Omit<Deal, "id" | "createdAt">) => void;
   moveDeal: (id: string, stageId: string) => void;
+
+  // appointments
+  addAppointment: (a: Omit<Appointment, "id">) => void;
+  updateAppointment: (id: string, patch: Partial<Appointment>) => void;
+  removeAppointment: (id: string) => void;
 
   // finance
   addTransaction: (t: Omit<Transaction, "id">) => void;
@@ -118,7 +175,7 @@ type State = {
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
 
-  // customers
+  // customers (kept in store, UI tab removed)
   addCustomer: (c: Omit<Customer, "id" | "createdAt">) => Customer;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
 
@@ -128,6 +185,17 @@ type State = {
   removeHeldOrder: (id: string) => void;
   checkoutOrder: (lines: CartLine[], customerId?: string) => Receipt;
   voidReceipt: (id: string, reason: string) => void;
+
+  // staff
+  addStaff: (s: Omit<Staff, "id" | "hiredAt" | "pin"> & { pin?: string }) => Staff;
+  updateStaff: (id: string, patch: Partial<Staff>) => void;
+  removeStaff: (id: string) => void;
+  resetPin: (id: string) => string;
+  clockIn: (staffId: string) => void;
+  clockOut: (staffId: string) => void;
+
+  // subscription
+  updateSubscription: (patch: Partial<Subscription>) => void;
 
   // audit
   log: (e: Omit<AuditEvent, "id" | "at">) => void;
@@ -200,6 +268,42 @@ export const useStore = create<State>((set, get) => ({
     { id: uid(), at: minsAgo(18), actor: "cashier-1", action: "Discount applied", detail: "Z-1002 • -10%", severity: "warn" },
     { id: uid(), at: minsAgo(40), actor: "system", action: "Low stock", detail: "Vanilla syrup near threshold", severity: "alert" },
   ],
+  appointments: (() => {
+    const base = new Date(); base.setHours(10, 0, 0, 0);
+    const t = (h: number, m: number) => { const d = new Date(base); d.setHours(h, m, 0, 0); return d.toISOString(); };
+    return [
+      { id: uid(), title: "Brand kickoff", clients: ["Nova Studio"], start: t(10, 0), duration: 45, color: "stage-progress" },
+      { id: uid(), title: "Discovery call", clients: ["Acme Corp", "Helix Labs"], start: t(11, 30), duration: 30, color: "stage-new" },
+      { id: uid(), title: "Contract review", clients: ["Helix Labs"], start: t(14, 15), duration: 60, color: "stage-completed" },
+    ];
+  })(),
+  staff: [
+    { id: "owner", name: "Alex Mercer", role: "owner", phone: "+1 555 0001", email: "alex@mbe.app", pin: pin(), hiredAt: daysAgo(420), kpiTarget: 30 },
+    { id: "cashier-1", name: "Mia Chen", role: "cashier", phone: "+1 555 0188", pin: pin(), hiredAt: daysAgo(60), kpiTarget: 0 },
+    { id: "sales-1", name: "Daria Volkova", role: "sales", phone: "+1 555 0212", pin: pin(), hiredAt: daysAgo(180), kpiTarget: 12 },
+    { id: "barista-1", name: "Tom Reyes", role: "barista", phone: "+1 555 0233", pin: pin(), hiredAt: daysAgo(45), kpiTarget: 0 },
+  ],
+  shifts: [
+    { id: uid(), staffId: "cashier-1", start: new Date(today.getTime() - 3600_000 * 4).toISOString() },
+    { id: uid(), staffId: "barista-1", start: new Date(today.getTime() - 3600_000 * 2.5).toISOString() },
+  ],
+  subscription: {
+    plan: "Pro",
+    priceMonthly: 49,
+    status: "active",
+    startedAt: daysAgo(120),
+    renewsAt: new Date(today.getTime() + 86400000 * 14).toISOString(),
+    cardBrand: "Visa",
+    cardLast4: "4242",
+    cardExpiry: "08/28",
+    autoRenew: true,
+  },
+  prepInstructions: {
+    [cappId]: "1. Grind 18g of beans (medium-fine)\n2. Pull a double espresso (~25s, 36g out)\n3. Steam 200ml milk to 65°C, microfoam\n4. Pour into 12oz cup — heart latte art\n5. Serve immediately",
+    [espId]: "1. Grind 9g of beans (fine)\n2. Tamp evenly, 30lb pressure\n3. Pull single shot, 22–28s\n4. Serve in warm demitasse cup",
+    [latteId]: "1. Pull double espresso (18g in / 36g out)\n2. Add 15ml vanilla syrup to cup\n3. Steam 220ml milk silky\n4. Pour latte art on top\n5. Sleeve cup, serve",
+    [croissantId]: "Reheat 90s at 160°C in convection oven. Serve on small plate with butter knife.",
+  },
 
   addStage: () => set((s) => ({ stages: [...s.stages, { id: uid(), label: "New Stage", color: "stage-progress" }] })),
   updateStage: (id, patch) => set((s) => ({ stages: s.stages.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
@@ -283,6 +387,36 @@ export const useStore = create<State>((set, get) => ({
     set((s) => ({ receipts: s.receipts.map((x) => (x.id === id ? { ...x, voided: true } : x)) }));
     if (r) get().log({ actor: "cashier-1", action: "Receipt voided", detail: `${r.number} • ${reason}`, severity: "alert" });
   },
+
+
+  addAppointment: (a) => set((s) => ({ appointments: [...s.appointments, { ...a, id: uid() }] })),
+  updateAppointment: (id, patch) => set((s) => ({ appointments: s.appointments.map((x) => x.id === id ? { ...x, ...patch } : x) })),
+  removeAppointment: (id) => set((s) => ({ appointments: s.appointments.filter((x) => x.id !== id) })),
+
+  addStaff: (s) => {
+    const st: Staff = { ...s, id: uid(), pin: s.pin ?? pin(), hiredAt: new Date().toISOString() };
+    set((state) => ({ staff: [...state.staff, st] }));
+    get().log({ actor: "owner", action: "Staff added", detail: `${st.name} (${st.role})`, severity: "info" });
+    return st;
+  },
+  updateStaff: (id, patch) => set((s) => ({ staff: s.staff.map((x) => x.id === id ? { ...x, ...patch } : x) })),
+  removeStaff: (id) => set((s) => ({ staff: s.staff.filter((x) => x.id !== id) })),
+  resetPin: (id) => {
+    const np = pin();
+    set((s) => ({ staff: s.staff.map((x) => x.id === id ? { ...x, pin: np } : x) }));
+    get().log({ actor: "owner", action: "PIN reset", detail: id, severity: "warn" });
+    return np;
+  },
+  clockIn: (staffId) => {
+    const open = get().shifts.find((sh) => sh.staffId === staffId && !sh.end);
+    if (open) return;
+    set((s) => ({ shifts: [...s.shifts, { id: uid(), staffId, start: new Date().toISOString() }] }));
+  },
+  clockOut: (staffId) => set((s) => ({
+    shifts: s.shifts.map((sh) => (sh.staffId === staffId && !sh.end) ? { ...sh, end: new Date().toISOString() } : sh),
+  })),
+
+  updateSubscription: (patch) => set((s) => ({ subscription: { ...s.subscription, ...patch } })),
 
   log: (e) => set((s) => ({ audit: [{ ...e, id: uid(), at: new Date().toISOString() }, ...s.audit].slice(0, 100) })),
 }));

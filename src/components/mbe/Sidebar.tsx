@@ -1,8 +1,11 @@
 import { Logo } from "./Logo";
-import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity } from "lucide-react";
+import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity, Crown, UserCog, Gift, FileBarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Section = "dashboard" | "pos" | "finance" | "inventory" | "crm" | "customers" | "tasks" | "profile" | "settings";
+export type Section =
+  | "dashboard" | "pos" | "finance" | "inventory" | "crm" | "tasks"
+  | "staff" | "premium" | "referral" | "reports"
+  | "profile" | "settings";
 
 const items: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "dashboard", label: "Pulse", icon: Activity },
@@ -10,8 +13,11 @@ const items: { id: Section; label: string; icon: React.ComponentType<{ className
   { id: "finance", label: "Finance", icon: Wallet },
   { id: "inventory", label: "Inventory", icon: Boxes },
   { id: "crm", label: "CRM", icon: Users },
-  { id: "customers", label: "Customers", icon: User },
   { id: "tasks", label: "Task List", icon: ListChecks },
+  { id: "staff", label: "Staff", icon: UserCog },
+  { id: "reports", label: "Reports", icon: FileBarChart2 },
+  { id: "referral", label: "Referral", icon: Gift },
+  { id: "premium", label: "Premium", icon: Crown },
 ];
 
 const bottom: typeof items = [
@@ -27,10 +33,11 @@ export const Sidebar = ({ active, onChange }: { active: Section; onChange: (s: S
       </div>
 
       <div className="px-3 py-4 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Workspace</div>
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {items.map((it) => {
           const Icon = it.icon;
           const isActive = active === it.id;
+          const isPremium = it.id === "premium";
           return (
             <button
               key={it.id}
@@ -39,12 +46,15 @@ export const Sidebar = ({ active, onChange }: { active: Section; onChange: (s: S
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all relative group",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-elegant"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  : isPremium
+                    ? "text-foreground hover:bg-sidebar-accent"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={cn("h-4 w-4", isPremium && !isActive && "text-[hsl(var(--stage-progress))]")} />
               <span className="font-medium tracking-tight">{it.label}</span>
               {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary-foreground/80" />}
+              {isPremium && !isActive && <span className="ml-auto text-[9px] uppercase tracking-widest text-[hsl(var(--stage-progress))]">PRO</span>}
             </button>
           );
         })}

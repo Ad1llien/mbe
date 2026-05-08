@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Settings2, Pencil } from "lucide-react";
+import { Plus, Settings2, Pencil, CalendarDays } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { CalendarDialog } from "./Calendar";
 
 const colorOptions = [
   { id: "stage-new", label: "Red" },
@@ -22,6 +23,8 @@ export const CRM = () => {
   const { stages, deals, addDeal, moveDeal } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client: "", title: "", amount: "", stageId: stages[0]?.id ?? "new" });
+  const [calOpen, setCalOpen] = useState(false);
+  const [calCtx, setCalCtx] = useState<{ client?: string; title?: string; dealId?: string }>({});
 
   return (
     <div className="fade-in">
@@ -30,6 +33,9 @@ export const CRM = () => {
         subtitle="Pipeline synced with Finance — completed deals issue receipts automatically."
         action={
           <div className="flex items-center gap-2">
+            <Button variant="secondary" className="h-9" onClick={() => { setCalCtx({}); setCalOpen(true); }}>
+              <CalendarDays className="h-4 w-4 mr-1" /> Calendar
+            </Button>
             <CustomizeStages />
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild><Button className="h-9"><Plus className="h-4 w-4 mr-1" /> Add deal</Button></DialogTrigger>
@@ -78,9 +84,16 @@ export const CRM = () => {
               </div>
               <div className="space-y-2">
                 {stageDeals.map((d) => (
-                  <div key={d.id} className="rounded-lg bg-secondary/60 p-3 hairline group">
-                    <div className="text-xs text-muted-foreground">{d.client}</div>
-                    <div className="text-sm font-medium">{d.title}</div>
+                  <div key={d.id} className="rounded-lg bg-secondary/60 p-3 hairline group relative">
+                    <button
+                      onClick={() => { setCalCtx({ client: d.client, title: d.title, dealId: d.id }); setCalOpen(true); }}
+                      className="absolute top-2 right-2 h-6 w-6 grid place-items-center rounded-md bg-background/60 hover:bg-foreground hover:text-background transition-all opacity-70 hover:opacity-100"
+                      title="Schedule appointment"
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="text-xs text-muted-foreground pr-7">{d.client}</div>
+                    <div className="text-sm font-medium pr-7">{d.title}</div>
                     <div className="mt-2 flex items-center justify-between">
                       <div className="text-sm font-semibold">${d.amount.toLocaleString()}</div>
                       <div className="text-[10px] text-muted-foreground">{format(parseISO(d.createdAt), "MMM d")}</div>
@@ -97,6 +110,14 @@ export const CRM = () => {
           );
         })}
       </div>
+
+      <CalendarDialog
+        open={calOpen}
+        onOpenChange={setCalOpen}
+        defaultClient={calCtx.client}
+        defaultTitle={calCtx.title}
+        dealId={calCtx.dealId}
+      />
     </div>
   );
 };

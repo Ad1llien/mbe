@@ -6,12 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
-import { ArrowDownRight, ArrowUpRight, ReceiptText, Wallet, AlertTriangle, Activity, Plus, ShoppingBag } from "lucide-react";
-import { format, parseISO, isToday, subDays, startOfDay } from "date-fns";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Sector } from "recharts";
+import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck, Clock } from "lucide-react";
+import { format, parseISO, isToday, subDays, startOfDay, differenceInMinutes } from "date-fns";
 
 export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
-  const { receipts, transactions, inventory, audit, addTransaction } = useStore();
+  const { receipts, transactions, inventory, audit, addTransaction, staff, shifts } = useStore();
+  const [activeIdx, setActiveIdx] = useState<number>(0);
+
+  const onShift = shifts.filter((sh) => !sh.end).map((sh) => ({ shift: sh, person: staff.find((p) => p.id === sh.staffId)! })).filter((x) => x.person);
 
   const todayReceipts = receipts.filter((r) => !r.voided && isToday(parseISO(r.createdAt)));
   const revenueToday = todayReceipts.reduce((s, r) => s + r.total, 0);
@@ -84,20 +87,30 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
 
         <Panel>
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-medium flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /> Critical stock</div>
-            <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => onGoto?.("inventory")}>view all →</button>
+            <div className="text-sm font-medium flex items-center gap-2"><UserCheck className="h-4 w-4 text-[hsl(var(--stage-completed))]" /> Active staff</div>
+            <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => onGoto?.("staff")}>manage →</button>
           </div>
           <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
-            {critical.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">Stock is healthy ✦</div>}
-            {critical.map((i) => (
-              <div key={i.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-destructive/10 hairline">
-                <div className="h-8 w-8 rounded-lg bg-destructive/20 text-destructive grid place-items-center"><AlertTriangle className="h-4 w-4" /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate">{i.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{i.stock} {i.unit} left • threshold {i.threshold}</div>
+            {onShift.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">Nobody clocked in</div>}
+            {onShift.map(({ shift, person }) => {
+              const mins = differenceInMinutes(new Date(), parseISO(shift.start));
+              const h = Math.floor(mins / 60); const m = mins % 60;
+              return (
+                <div key={shift.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 hairline">
+                  <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-[11px] font-semibold">
+                    {person.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{person.name}</div>
+                    <div className="text-[10px] text-muted-foreground capitalize">{person.role}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-semibold tabular-nums flex items-center gap-1 justify-end"><Clock className="h-3 w-3" />{h}h {m}m</div>
+                    <div className="text-[10px] text-[hsl(var(--stage-completed))]">on shift</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Panel>
       </div>
@@ -120,22 +133,102 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
           </div>
         </Panel>
 
-        <Panel>
-          <div className="text-sm font-medium mb-3 flex items-center gap-2"><Activity className="h-4 w-4" /> Activity log</div>
-          <div className="space-y-2 max-h-[280px] overflow-auto pr-1">
-            {audit.slice(0, 12).map((a) => (
-              <div key={a.id} className="flex items-start gap-3 p-2.5 rounded-lg bg-secondary/40 hairline">
-                <span className={`mt-1 h-2 w-2 rounded-full ${a.severity === "alert" ? "bg-destructive" : a.severity === "warn" ? "bg-[hsl(var(--stage-progress))]" : "bg-muted-foreground"}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium">{a.action} <span className="text-muted-foreground font-normal">— {a.detail}</span></div>
-                  <div className="text-[10px] text-muted-foreground">{format(parseISO(a.at), "MMM d • HH:mm")} • {a.actor}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Panel>
+        <RevenuePie receipts={receipts} activeIdx={activeIdx} setActiveIdx={setActiveIdx} />
       </div>
     </div>
+  );
+};
+
+const PIE_COLORS = ["hsl(var(--foreground))", "hsl(var(--stage-completed))", "hsl(var(--stage-progress))", "hsl(var(--stage-noresponse))", "hsl(var(--stage-new))", "hsl(var(--muted-foreground))"];
+
+const RevenuePie = ({ receipts, activeIdx, setActiveIdx }: { receipts: any[]; activeIdx: number; setActiveIdx: (n: number) => void }) => {
+  const data = useMemo(() => {
+    const totals = new Map<string, { name: string; revenue: number; qty: number }>();
+    receipts.filter((r) => !r.voided).forEach((r) => r.lines.forEach((l: any) => {
+      const cur = totals.get(l.name) || { name: l.name, revenue: 0, qty: 0 };
+      cur.revenue += l.price * l.qty;
+      cur.qty += l.qty;
+      totals.set(l.name, cur);
+    }));
+    return Array.from(totals.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+  }, [receipts]);
+
+  const total = data.reduce((s, d) => s + d.revenue, 0);
+  const totalQty = data.reduce((s, d) => s + d.qty, 0);
+
+  const renderActive = (props: any) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    return (
+      <g>
+        <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+        <Sector cx={cx} cy={cy} innerRadius={outerRadius + 10} outerRadius={outerRadius + 12} startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.35} />
+      </g>
+    );
+  };
+
+  const active = data[activeIdx];
+
+  return (
+    <Panel>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4" /> Revenue mix</div>
+        <div className="text-[10px] text-muted-foreground">top products</div>
+      </div>
+      {data.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-12 text-center">No sales yet</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 items-center">
+          <div className="h-[230px] relative">
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="revenue"
+                  nameKey="name"
+                  cx="50%" cy="50%"
+                  innerRadius={62}
+                  outerRadius={88}
+                  paddingAngle={2}
+                  stroke="none"
+                  activeIndex={activeIdx}
+                  activeShape={renderActive}
+                  onMouseEnter={(_, idx) => setActiveIdx(idx)}
+                  isAnimationActive
+                  animationDuration={700}
+                >
+                  {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 11 }}
+                  formatter={(v: number, n) => [`$${v.toFixed(2)}`, n as string]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 grid place-items-center pointer-events-none">
+              <div className="text-center">
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{active?.name || "Total"}</div>
+                <div className="text-xl font-semibold tabular-nums">${(active?.revenue ?? total).toFixed(2)}</div>
+                <div className="text-[10px] text-muted-foreground">{active ? `${active.qty} sold • ${((active.revenue / total) * 100).toFixed(1)}%` : `${totalQty} items`}</div>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {data.map((d, i) => (
+              <button
+                key={d.name}
+                onMouseEnter={() => setActiveIdx(i)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-all ${activeIdx === i ? "bg-secondary" : "hover:bg-secondary/50"}`}
+              >
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                <span className="text-xs font-medium flex-1 truncate">{d.name}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums">${d.revenue.toFixed(0)}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right">{((d.revenue / total) * 100).toFixed(0)}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 };
 

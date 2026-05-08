@@ -5,8 +5,11 @@ import { POS } from "@/components/mbe/POS";
 import { Finance } from "@/components/mbe/Finance";
 import { Inventory } from "@/components/mbe/Inventory";
 import { CRM } from "@/components/mbe/CRM";
-import { Customers } from "@/components/mbe/Customers";
 import { TaskList } from "@/components/mbe/TaskList";
+import { StaffPage } from "@/components/mbe/Staff";
+import { Premium } from "@/components/mbe/Premium";
+import { Referral } from "@/components/mbe/Referral";
+import { Reports } from "@/components/mbe/Reports";
 import { Profile, SettingsPage } from "@/components/mbe/Misc";
 import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -37,8 +40,11 @@ const Index = () => {
           {active === "finance" && <Finance />}
           {active === "inventory" && <Inventory />}
           {active === "crm" && <CRM />}
-          {active === "customers" && <Customers />}
           {active === "tasks" && <TaskList />}
+          {active === "staff" && <StaffPage />}
+          {active === "premium" && <Premium />}
+          {active === "referral" && <Referral />}
+          {active === "reports" && <Reports />}
           {active === "profile" && <Profile />}
           {active === "settings" && <SettingsPage />}
         </main>

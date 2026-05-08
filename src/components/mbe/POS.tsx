@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Minus, X, PauseCircle, PlayCircle, ReceiptText, User, Trash2, Search } from "lucide-react";
+import { Plus, Minus, X, PauseCircle, PlayCircle, ReceiptText, User, Trash2, Search, HelpCircle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
 export const POS = () => {
-  const { inventory, holdOrder, heldOrders, resumeOrder, removeHeldOrder, checkoutOrder, customers, addCustomer, log } = useStore();
+  const { inventory, holdOrder, heldOrders, resumeOrder, removeHeldOrder, checkoutOrder, customers, addCustomer, log, prepInstructions } = useStore();
+  const [helpItem, setHelpItem] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [customer, setCustomer] = useState<Customer | undefined>();
@@ -130,12 +131,23 @@ export const POS = () => {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {filtered.map((p) => (
-              <button key={p.id} onClick={() => addToCart(p.id)}
-                className="rounded-xl bg-secondary/50 hairline p-4 text-left hover:bg-secondary transition-all active:scale-[0.98]">
-                <div className="text-sm font-medium truncate">{p.name}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{p.sku}</div>
-                <div className="mt-3 text-lg font-semibold">${p.price.toFixed(2)}</div>
-              </button>
+              <div key={p.id} className="relative group">
+                <button onClick={() => addToCart(p.id)}
+                  className="w-full rounded-xl bg-secondary/50 hairline p-4 text-left hover:bg-secondary transition-all active:scale-[0.98]">
+                  <div className="text-sm font-medium truncate pr-6">{p.name}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{p.sku}</div>
+                  <div className="mt-3 text-lg font-semibold">${p.price.toFixed(2)}</div>
+                </button>
+                {prepInstructions[p.id] && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setHelpItem(p.id); }}
+                    className="absolute top-2 right-2 h-6 w-6 grid place-items-center rounded-full bg-background/70 hover:bg-foreground hover:text-background text-muted-foreground transition-all"
+                    title="How to prepare"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             ))}
             {filtered.length === 0 && <div className="col-span-full text-xs text-muted-foreground py-8 text-center">No products match.</div>}
           </div>
@@ -208,6 +220,25 @@ export const POS = () => {
           </div>
         </Panel>
       </div>
+
+      <Dialog open={!!helpItem} onOpenChange={(v) => !v && setHelpItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HelpCircle className="h-4 w-4" />
+              How to prepare · {inventory.find((i) => i.id === helpItem)?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <ol className="space-y-2 text-sm">
+            {(prepInstructions[helpItem || ""] || "").split("\n").filter(Boolean).map((line, i) => (
+              <li key={i} className="flex gap-3 p-3 rounded-lg bg-secondary/40 hairline">
+                <span className="h-6 w-6 shrink-0 rounded-full bg-foreground text-background grid place-items-center text-[11px] font-semibold">{i + 1}</span>
+                <span className="leading-relaxed pt-0.5">{line.replace(/^\d+\.\s*/, "")}</span>
+              </li>
+            ))}
+          </ol>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
