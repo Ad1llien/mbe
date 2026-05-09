@@ -85,3 +85,19 @@
 
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+aside ::-webkit-scrollbar {
+  width: 4px;
+}
+
+aside ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+aside ::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+
+aside ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}

@@ -1,9 +1,10 @@
 import { Logo } from "./Logo";
-import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity, Crown, UserCog, Gift, FileBarChart2 } from "lucide-react";
+import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity, Crown, UserCog, Gift, FileBarChart2, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
+import React from "react";
 
 export type Section =
-  | "dashboard" | "pos" | "finance" | "inventory" | "crm" | "tasks"
+  | "dashboard" | "pos" | "finance" | "inventory" | "crm" | "tasks" | "calendar"
   | "staff" | "premium" | "referral" | "reports"
   | "profile" | "settings";
 
@@ -17,6 +18,7 @@ const items: { id: Section; label: string; icon: React.ComponentType<{ className
   { id: "staff", label: "Staff", icon: UserCog },
   { id: "reports", label: "Reports", icon: FileBarChart2 },
   { id: "referral", label: "Referral", icon: Gift },
+  { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "premium", label: "Premium", icon: Crown },
 ];
 

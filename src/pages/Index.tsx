@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, Section } from "@/components/mbe/Sidebar";
 import { Dashboard } from "@/components/mbe/Dashboard";
 import { POS } from "@/components/mbe/POS";
@@ -11,11 +11,23 @@ import { Premium } from "@/components/mbe/Premium";
 import { Referral } from "@/components/mbe/Referral";
 import { Reports } from "@/components/mbe/Reports";
 import { Profile, SettingsPage } from "@/components/mbe/Misc";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, Sun, Moon } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { CalendarPage } from "@/components/mbe/CalendarPage";
 
 const Index = () => {
   const [active, setActive] = useState<Section>("dashboard");
+  const [dark, setDark] = useState(() => {
+    return document.documentElement.classList.contains("dark");
+  });
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [dark]);
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
@@ -27,6 +39,13 @@ const Index = () => {
             <Input placeholder="Search deals, items, transactions…" className="pl-9 h-9 bg-secondary border-transparent" />
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="h-9 w-9 rounded-lg bg-secondary grid place-items-center hover:bg-accent transition-colors"
+              title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
             <button className="h-9 w-9 rounded-lg bg-secondary grid place-items-center hover:bg-accent transition-colors">
               <Bell className="h-4 w-4" />
             </button>
@@ -40,6 +59,7 @@ const Index = () => {
           {active === "finance" && <Finance />}
           {active === "inventory" && <Inventory />}
           {active === "crm" && <CRM />}
+          {active === "calendar" && <CalendarPage />}
           {active === "tasks" && <TaskList />}
           {active === "staff" && <StaffPage />}
           {active === "premium" && <Premium />}
