@@ -5,10 +5,13 @@ import { cn } from "@/lib/utils";
 type Theme = "dark" | "light";
 const KEY = "mbe-theme";
 
+// MBE design baseline lives on :root (dark). The `.dark` legacy block uses
+// oklch values that break `hsl(var(--*))` consumers, so we never add it.
+// Light theme is opt-in via the `.light` class.
 const apply = (t: Theme) => {
   const root = document.documentElement;
   root.classList.remove("light", "dark");
-  root.classList.add(t);
+  if (t === "light") root.classList.add("light");
 };
 
 export const ThemeToggle = () => {

@@ -38,6 +38,7 @@ export type InventoryItem = {
   unit?: string; // ml, g, pcs
   isProduct?: boolean; // sellable in POS
   recipe?: RecipeItem[]; // ingredients consumed on sale
+  prepSteps?: string[]; // optional preparation/cooking steps
 };
 
 export type Task = {
@@ -92,11 +93,19 @@ export type AuditEvent = {
   severity: "info" | "warn" | "alert";
 };
 
+export type AppointmentClient = {
+  firstName: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+};
+
 export type Appointment = {
   id: string;
   dealId?: string;
   title: string;
-  clients: string[]; // client names; multiple allowed at same slot
+  clients: string[]; // legacy quick-list of names
+  contacts?: AppointmentClient[]; // detailed client info
   start: string; // ISO
   duration: number; // minutes (multiples of 15)
   color?: string; // stage color id

@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
-import { useStore, Appointment } from "./store";
-import { Panel, SectionHeader } from "./ui";
+import { useStore, Appointment, AppointmentClient } from "./store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, Trash2, X, Clock, Users as UsersIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, X, Clock, Users as UsersIcon, Pencil, StickyNote, Phone, Mail, User } from "lucide-react";
 import { addDays, format, isSameDay, parseISO, startOfWeek } from "date-fns";
 
 const SLOT_MIN = 15;
-const ROW_H = 14; // px per 15-min slot
-const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i); // 08:00 — 20:00
+const ROW_H = 14;
+const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i);
 const DURATIONS = [15, 30, 45, 60, 75, 90, 120];
+const COLORS = ["stage-new", "stage-progress", "stage-noresponse", "stage-completed", "stage-lost"];
 
 type Props = {
   open: boolean;
@@ -34,19 +34,16 @@ export const CalendarDialog = ({ open, onOpenChange, defaultClient, defaultTitle
 );
 
 export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { defaultClient?: string; defaultTitle?: string; dealId?: string }) => {
-  const { appointments, addAppointment, removeAppointment } = useStore();
+  const { appointments, addAppointment } = useStore();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [editing, setEditing] = useState<{ day: Date; hour: number; minute: number } | null>(null);
+  const [selected, setSelected] = useState<Appointment | null>(null);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
   const slotsPerHour = 60 / SLOT_MIN;
   const totalSlots = HOURS.length * slotsPerHour;
 
   const apptsByDay = (d: Date) => appointments.filter((a) => isSameDay(parseISO(a.start), d));
-
-  const handleSlotClick = (d: Date, hour: number, minute: number) => {
-    setEditing({ day: d, hour, minute });
-  };
 
   return (
     <div className="bg-background">
@@ -59,7 +56,7 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
             {format(weekStart, "MMM d")} — {format(addDays(weekStart, 6), "MMM d, yyyy")}
           </div>
         </div>
-        <div className="text-[11px] text-muted-foreground">15-min slots • click any slot to book</div>
+        <div className="text-[11px] text-muted-foreground">15-min slots • click any slot to book • click a booking for details</div>
       </div>
 
       <div className="grid grid-cols-[60px_repeat(7,_1fr)] border-b border-border bg-secondary/30 text-[11px]">
@@ -72,8 +69,7 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
         ))}
       </div>
 
-      <div className="grid grid-cols-[60px_repeat(7,_1fr)] max-h-[60vh] overflow-auto">
-        {/* time column */}
+      <div className="grid grid-cols-[60px_repeat(7,_1fr)] max-h-[70vh] overflow-auto">
         <div className="border-r border-border">
           {HOURS.map((h) => (
             <div key={h} style={{ height: ROW_H * slotsPerHour }} className="text-[10px] text-muted-foreground text-right pr-2 -mt-2">{`${String(h).padStart(2, "0")}:00`}</div>
@@ -83,7 +79,6 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
           const dayAppts = apptsByDay(d);
           return (
             <div key={d.toISOString()} className="relative border-r border-border last:border-r-0">
-              {/* slot grid */}
               {Array.from({ length: totalSlots }).map((_, i) => {
                 const hour = HOURS[0] + Math.floor(i / slotsPerHour);
                 const minute = (i % slotsPerHour) * SLOT_MIN;
@@ -91,13 +86,12 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
                 return (
                   <button
                     key={i}
-                    onClick={() => handleSlotClick(d, hour, minute)}
+                    onClick={() => setEditing({ day: d, hour, minute })}
                     style={{ height: ROW_H }}
                     className={`block w-full hover:bg-foreground/5 transition-colors ${isHour ? "border-t border-border" : "border-t border-border/30"}`}
                   />
                 );
               })}
-              {/* appointments overlaid */}
               {dayAppts.map((a) => {
                 const start = parseISO(a.start);
                 const minutesFromTop = (start.getHours() - HOURS[0]) * 60 + start.getMinutes();
@@ -106,10 +100,11 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
                 const height = (a.duration / SLOT_MIN) * ROW_H;
                 const color = a.color || "stage-progress";
                 return (
-                  <div
+                  <button
                     key={a.id}
+                    onClick={() => setSelected(a)}
                     style={{ top, height, background: `hsl(var(--${color}) / 0.18)`, borderLeft: `3px solid hsl(var(--${color}))` }}
-                    className="absolute left-0.5 right-0.5 rounded-md p-1.5 text-[10px] overflow-hidden group hover:shadow-elegant transition-all"
+                    className="absolute left-0.5 right-0.5 rounded-md p-1.5 text-[10px] overflow-hidden text-left hover:shadow-elegant transition-all hover:brightness-110"
                   >
                     <div className="flex items-center gap-1 font-semibold truncate">
                       <Clock className="h-2.5 w-2.5 shrink-0" />{format(start, "HH:mm")} • {a.duration}m
@@ -118,13 +113,7 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
                     <div className="flex items-center gap-1 text-muted-foreground truncate">
                       <UsersIcon className="h-2.5 w-2.5 shrink-0" />{a.clients.join(", ")}
                     </div>
-                    <button
-                      onClick={() => removeAppointment(a.id)}
-                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 h-4 w-4 grid place-items-center rounded bg-background/70 hover:bg-destructive hover:text-destructive-foreground transition-all"
-                    >
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -143,6 +132,165 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
           onSave={(payload) => { addAppointment(payload); setEditing(null); }}
         />
       )}
+
+      <AppointmentDetailDialog appointment={selected} onOpenChange={(v) => { if (!v) setSelected(null); }} />
+    </div>
+  );
+};
+
+const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: Appointment | null; onOpenChange: (v: boolean) => void }) => {
+  const { updateAppointment, removeAppointment } = useStore();
+  const [edit, setEdit] = useState(false);
+  const [draft, setDraft] = useState<Appointment | null>(null);
+
+  const open = !!appointment;
+  const a = edit && draft ? draft : appointment;
+
+  const startEdit = () => { setDraft(appointment); setEdit(true); };
+  const cancelEdit = () => { setEdit(false); setDraft(null); };
+  const save = () => {
+    if (!draft) return;
+    const { id, ...patch } = draft;
+    updateAppointment(id, patch);
+    setEdit(false); setDraft(null);
+    onOpenChange(false);
+  };
+  const remove = () => {
+    if (!appointment) return;
+    removeAppointment(appointment.id);
+    setEdit(false); setDraft(null);
+    onOpenChange(false);
+  };
+
+  if (!a) return null;
+  const start = parseISO(a.start);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) cancelEdit(); onOpenChange(v); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(var(--${a.color || "stage-progress"}))` }} />
+            {edit ? "Edit appointment" : "Appointment"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {!edit ? (
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">When</div>
+              <div className="font-medium">{format(start, "EEE d MMM yyyy")} · {format(start, "HH:mm")} ({a.duration} min)</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Title</div>
+              <div className="font-medium">{a.title}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Clients ({(a.contacts?.length || a.clients.length)})</div>
+              {a.contacts && a.contacts.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  {a.contacts.map((c, i) => (
+                    <div key={i} className="rounded-lg bg-secondary/50 hairline p-3">
+                      <div className="flex items-center gap-2 font-medium">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        {c.firstName} {c.lastName || ""}
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] text-muted-foreground">
+                        {c.phone && (
+                          <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                            <Phone className="h-3 w-3" /> {c.phone}
+                          </a>
+                        )}
+                        {c.email && (
+                          <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                            <Mail className="h-3 w-3" /> {c.email}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {a.clients.map((c, i) => (
+                    <span key={i} className="text-[11px] px-2 py-1 rounded-full bg-secondary">{c}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {a.note && (
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Note</div>
+                <div className="text-xs text-muted-foreground mt-1 p-2 rounded bg-secondary/50">{a.note}</div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <EditFields draft={draft!} setDraft={setDraft} />
+        )}
+
+        <DialogFooter className="gap-2">
+          {!edit ? (
+            <>
+              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={remove}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+              <Button onClick={startEdit}><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={cancelEdit}>Cancel</Button>
+              <Button onClick={save}>Save changes</Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const EditFields = ({ draft, setDraft }: { draft: Appointment; setDraft: (v: Appointment) => void }) => {
+  const [clientDraft, setClientDraft] = useState("");
+  return (
+    <div className="space-y-3">
+      <div><Label>Title</Label><Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Duration</Label>
+          <Select value={String(draft.duration)} onValueChange={(v) => setDraft({ ...draft, duration: Number(v) })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{DURATIONS.map((d) => <SelectItem key={d} value={String(d)}>{d} min</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Color</Label>
+          <Select value={draft.color || "stage-progress"} onValueChange={(v) => setDraft({ ...draft, color: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {COLORS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  <span className="inline-block h-2.5 w-2.5 rounded-full mr-2" style={{ background: `hsl(var(--${c}))` }} />{c.replace("stage-", "")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div>
+        <Label>Clients</Label>
+        <div className="flex gap-2">
+          <Input value={clientDraft} onChange={(e) => setClientDraft(e.target.value)} placeholder="Add and Enter"
+            onKeyDown={(e) => { if (e.key === "Enter" && clientDraft.trim()) { setDraft({ ...draft, clients: [...draft.clients, clientDraft.trim()] }); setClientDraft(""); } }} />
+          <Button variant="secondary" type="button" onClick={() => { if (clientDraft.trim()) { setDraft({ ...draft, clients: [...draft.clients, clientDraft.trim()] }); setClientDraft(""); } }}><Plus className="h-4 w-4" /></Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {draft.clients.map((c, i) => (
+            <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-secondary">
+              {c}
+              <button onClick={() => setDraft({ ...draft, clients: draft.clients.filter((_, j) => j !== i) })} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      </div>
+      <div><Label>Note</Label><Input value={draft.note || ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></div>
     </div>
   );
 };
@@ -159,16 +307,22 @@ const NewApptDialog = ({ open, onOpenChange, slot, defaultClient, defaultTitle, 
   const [title, setTitle] = useState(defaultTitle || "");
   const [duration, setDuration] = useState(30);
   const [color, setColor] = useState("stage-progress");
-  const [clients, setClients] = useState<string[]>(defaultClient ? [defaultClient] : []);
-  const [draft, setDraft] = useState("");
+  const [contacts, setContacts] = useState<AppointmentClient[]>(
+    defaultClient ? [{ firstName: defaultClient }] : [{ firstName: "" }]
+  );
   const [note, setNote] = useState("");
 
   const start = new Date(slot.day);
   start.setHours(slot.hour, slot.minute, 0, 0);
 
+  const updateContact = (i: number, patch: Partial<AppointmentClient>) =>
+    setContacts(contacts.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  const addContact = () => setContacts([...contacts, { firstName: "" }]);
+  const removeContact = (i: number) => setContacts(contacts.filter((_, idx) => idx !== i));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New booking · {format(start, "EEE d MMM, HH:mm")}</DialogTitle>
         </DialogHeader>
@@ -187,35 +341,51 @@ const NewApptDialog = ({ open, onOpenChange, slot, defaultClient, defaultTitle, 
               <Select value={color} onValueChange={setColor}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["stage-new", "stage-progress", "stage-noresponse", "stage-completed", "stage-lost"].map((c) =>
+                  {COLORS.map((c) =>
                     <SelectItem key={c} value={c}><span className="inline-block h-2.5 w-2.5 rounded-full mr-2" style={{ background: `hsl(var(--${c}))` }} />{c.replace("stage-", "")}</SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div>
-            <Label>Clients (multiple allowed at same slot)</Label>
-            <div className="flex gap-2">
-              <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Add client name and Enter"
-                onKeyDown={(e) => { if (e.key === "Enter" && draft.trim()) { setClients([...clients, draft.trim()]); setDraft(""); } }} />
-              <Button variant="secondary" onClick={() => { if (draft.trim()) { setClients([...clients, draft.trim()]); setDraft(""); } }}><Plus className="h-4 w-4" /></Button>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Clients (multiple allowed at same slot)</Label>
+              <Button type="button" variant="secondary" size="sm" className="h-7" onClick={addContact}>
+                <Plus className="h-3 w-3 mr-1" /> Add client
+              </Button>
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {clients.map((c, i) => (
-                <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-secondary">
-                  {c}
-                  <button onClick={() => setClients(clients.filter((_, j) => j !== i))} className="hover:text-destructive"><X className="h-3 w-3" /></button>
-                </span>
-              ))}
-            </div>
+            {contacts.map((c, i) => (
+              <div key={i} className="rounded-lg bg-secondary/40 hairline p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Client {i + 1}</div>
+                  {contacts.length > 1 && (
+                    <button onClick={() => removeContact(i)} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={c.firstName} onChange={(e) => updateContact(i, { firstName: e.target.value })} placeholder="First name" />
+                  <Input value={c.lastName || ""} onChange={(e) => updateContact(i, { lastName: e.target.value })} placeholder="Last name" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value={c.phone || ""} onChange={(e) => updateContact(i, { phone: e.target.value })} placeholder="Phone" />
+                  <Input value={c.email || ""} onChange={(e) => updateContact(i, { email: e.target.value })} placeholder="Email" />
+                </div>
+              </div>
+            ))}
           </div>
+
           <div><Label>Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
         </div>
         <DialogFooter>
           <Button onClick={() => {
-            if (!title || clients.length === 0) return;
-            onSave({ title, clients, duration, color, note, start: start.toISOString(), dealId });
+            const valid = contacts.filter((c) => c.firstName.trim());
+            if (!title || valid.length === 0) return;
+            const clientNames = valid.map((c) => `${c.firstName}${c.lastName ? " " + c.lastName : ""}`.trim());
+            onSave({ title, clients: clientNames, contacts: valid, duration, color, note, start: start.toISOString(), dealId });
           }}>Book</Button>
         </DialogFooter>
       </DialogContent>
