@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class LeadsService {
@@ -50,6 +51,13 @@ export class LeadsService {
   getMyBusiness(userId: string) {
     return this.prisma.business.findUnique({
       where: { userId },
+    });
+  }
+
+  regenerateSecret(userId: string) {
+    return this.prisma.business.update({
+      where: { userId },
+      data: { webhookSecret: randomUUID() },
     });
   }
 }

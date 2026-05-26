@@ -67,3 +67,26 @@ model Lead {
   status     String   @default("new")
   createdAt  DateTime @default(now())
 }
+
+model Task {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  due       DateTime
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Appointment {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  start     DateTime
+  duration  Int
+  color     String   @default("stage-progress")
+  note      String?
+  clients   Json     @default("[]")
+  contacts  Json     @default("[]")
+  dealId    String?
+  createdAt DateTime @default(now())
+}

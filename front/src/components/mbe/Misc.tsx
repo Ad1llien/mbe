@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Copy } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Copy, RefreshCw } from "lucide-react";
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,14 +40,16 @@ export const SettingsPage = () => {
   const navigate = useNavigate();
   const [business, setBusiness] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
       fetch(`http://localhost:3000/leads/business/my?userId=${user.id}`)
         .then(r => r.json())
-        .then(setBusiness);
+        .then(data => { if (data?.id) setBusiness(data); });
     }
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   const webhookUrl = business
     ? `http://localhost:3000/leads/webhook?businessId=${business.id}&secret=${business.webhookSecret}`
@@ -57,6 +60,19 @@ export const SettingsPage = () => {
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRegenerate = async () => {
+    await fetch(
+      `http://localhost:3000/leads/business/regenerate-secret?userId=${user?.id}`,
+      { method: 'POST' }
+    );
+    setBusiness(null);
+    const biz = await fetch(
+      `http://localhost:3000/leads/business/my?userId=${user?.id}`
+    ).then(r => r.json());
+    setBusiness(biz);
+    setConfirmOpen(false);
   };
 
   const handleLogout = () => {
@@ -97,8 +113,27 @@ export const SettingsPage = () => {
             <Button size="icon" variant="secondary" onClick={handleCopy} title={copied ? "Скопировано!" : "Скопировать"}>
               <Copy className="h-4 w-4" />
             </Button>
+            <Button variant="destructive" size="icon" onClick={() => setConfirmOpen(true)} title="Пересоздать ссылку">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
           {copied && <div className="text-xs text-green-500 mt-1">Скопировано!</div>}
+
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Пересоздать webhook ссылку?</DialogTitle>
+              </DialogHeader>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>Текущая ссылка станет <span className="text-destructive font-medium">недействительной</span>.</p>
+                <p>Если эта ссылка была подключена к Facebook / Instagram Ads — заявки перестанут приходить до тех пор, пока вы не обновите ссылку в рекламном кабинете.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setConfirmOpen(false)}>Отмена</Button>
+                <Button variant="destructive" onClick={handleRegenerate}>Пересоздать</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </Panel>
       )}
     </div>

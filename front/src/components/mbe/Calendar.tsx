@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { useStore, Appointment, AppointmentClient } from "./store";
+import { useMemo, useState, useEffect } from "react";
+import { useAuthStore } from "@/store/authStore";
+import { type AppointmentClient } from "./store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronLeft, ChevronRight, Plus, Trash2, X, Clock, Users as UsersIcon, Pencil, StickyNote, Phone, Mail, User } from "lucide-react";
 import { addDays, format, isSameDay, parseISO, startOfWeek } from "date-fns";
 
+const API = "http://localhost:3000";
 const SLOT_MIN = 15;
 const ROW_H = 14;
 const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i);
@@ -34,16 +36,51 @@ export const CalendarDialog = ({ open, onOpenChange, defaultClient, defaultTitle
 );
 
 export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { defaultClient?: string; defaultTitle?: string; dealId?: string }) => {
-  const { appointments, addAppointment } = useStore();
+  const user = useAuthStore((s) => s.user);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [editing, setEditing] = useState<{ day: Date; hour: number; minute: number } | null>(null);
-  const [selected, setSelected] = useState<Appointment | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API}/appointments?userId=${user.id}`)
+      .then(r => r.json())
+      .then(setAppointments);
+  }, [user?.id]);
 
   const slotsPerHour = 60 / SLOT_MIN;
   const totalSlots = HOURS.length * slotsPerHour;
 
   const apptsByDay = (d: Date) => appointments.filter((a) => isSameDay(parseISO(a.start), d));
+
+  const handleAdd = async (payload: any) => {
+    if (!user?.id) return;
+    const appt = await fetch(`${API}/appointments?userId=${user.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(r => r.json());
+    setAppointments(prev => [...prev, appt]);
+    setEditing(null);
+  };
+
+  const handleUpdate = async (id: string, patch: any) => {
+    const updated = await fetch(`${API}/appointments/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).then(r => r.json());
+    setAppointments(prev => prev.map(a => a.id === id ? updated : a));
+    setSelected(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    await fetch(`${API}/appointments/${id}`, { method: "DELETE" });
+    setAppointments(prev => prev.filter(a => a.id !== id));
+    setSelected(null);
+  };
 
   return (
     <div className="bg-background">
@@ -111,7 +148,7 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
                     </div>
                     <div className="truncate">{a.title}</div>
                     <div className="flex items-center gap-1 text-muted-foreground truncate">
-                      <UsersIcon className="h-2.5 w-2.5 shrink-0" />{a.clients.join(", ")}
+                      <UsersIcon className="h-2.5 w-2.5 shrink-0" />{(a.clients as string[]).join(", ")}
                     </div>
                   </button>
                 );
@@ -129,19 +166,28 @@ export const CalendarBoard = ({ defaultClient, defaultTitle, dealId }: { default
           defaultClient={defaultClient}
           defaultTitle={defaultTitle}
           dealId={dealId}
-          onSave={(payload) => { addAppointment(payload); setEditing(null); }}
+          onSave={handleAdd}
         />
       )}
 
-      <AppointmentDetailDialog appointment={selected} onOpenChange={(v) => { if (!v) setSelected(null); }} />
+      <AppointmentDetailDialog
+        appointment={selected}
+        onOpenChange={(v) => { if (!v) setSelected(null); }}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+      />
     </div>
   );
 };
 
-const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: Appointment | null; onOpenChange: (v: boolean) => void }) => {
-  const { updateAppointment, removeAppointment } = useStore();
+const AppointmentDetailDialog = ({ appointment, onOpenChange, onUpdate, onDelete }: {
+  appointment: any | null;
+  onOpenChange: (v: boolean) => void;
+  onUpdate: (id: string, patch: any) => void;
+  onDelete: (id: string) => void;
+}) => {
   const [edit, setEdit] = useState(false);
-  const [draft, setDraft] = useState<Appointment | null>(null);
+  const [draft, setDraft] = useState<any | null>(null);
 
   const open = !!appointment;
   const a = edit && draft ? draft : appointment;
@@ -151,15 +197,8 @@ const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: A
   const save = () => {
     if (!draft) return;
     const { id, ...patch } = draft;
-    updateAppointment(id, patch);
+    onUpdate(id, patch);
     setEdit(false); setDraft(null);
-    onOpenChange(false);
-  };
-  const remove = () => {
-    if (!appointment) return;
-    removeAppointment(appointment.id);
-    setEdit(false); setDraft(null);
-    onOpenChange(false);
   };
 
   if (!a) return null;
@@ -186,33 +225,25 @@ const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: A
               <div className="font-medium">{a.title}</div>
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Clients ({(a.contacts?.length || a.clients.length)})</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Clients ({(a.contacts?.length || (a.clients as any[])?.length || 0)})</div>
               {a.contacts && a.contacts.length > 0 ? (
                 <div className="mt-2 space-y-2">
-                  {a.contacts.map((c, i) => (
+                  {(a.contacts as AppointmentClient[]).map((c, i) => (
                     <div key={i} className="rounded-lg bg-secondary/50 hairline p-3">
                       <div className="flex items-center gap-2 font-medium">
                         <User className="h-3.5 w-3.5 text-muted-foreground" />
                         {c.firstName} {c.lastName || ""}
                       </div>
                       <div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] text-muted-foreground">
-                        {c.phone && (
-                          <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                            <Phone className="h-3 w-3" /> {c.phone}
-                          </a>
-                        )}
-                        {c.email && (
-                          <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                            <Mail className="h-3 w-3" /> {c.email}
-                          </a>
-                        )}
+                        {c.phone && <a href={`tel:${c.phone}`} className="inline-flex items-center gap-1.5 hover:text-foreground"><Phone className="h-3 w-3" /> {c.phone}</a>}
+                        {c.email && <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1.5 hover:text-foreground"><Mail className="h-3 w-3" /> {c.email}</a>}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  {a.clients.map((c, i) => (
+                  {(a.clients as string[]).map((c, i) => (
                     <span key={i} className="text-[11px] px-2 py-1 rounded-full bg-secondary">{c}</span>
                   ))}
                 </div>
@@ -232,7 +263,7 @@ const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: A
         <DialogFooter className="gap-2">
           {!edit ? (
             <>
-              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={remove}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
+              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => onDelete(a.id)}><Trash2 className="h-4 w-4 mr-1" /> Delete</Button>
               <Button onClick={startEdit}><Pencil className="h-4 w-4 mr-1" /> Edit</Button>
             </>
           ) : (
@@ -247,7 +278,7 @@ const AppointmentDetailDialog = ({ appointment, onOpenChange }: { appointment: A
   );
 };
 
-const EditFields = ({ draft, setDraft }: { draft: Appointment; setDraft: (v: Appointment) => void }) => {
+const EditFields = ({ draft, setDraft }: { draft: any; setDraft: (v: any) => void }) => {
   const [clientDraft, setClientDraft] = useState("");
   return (
     <div className="space-y-3">
@@ -278,14 +309,14 @@ const EditFields = ({ draft, setDraft }: { draft: Appointment; setDraft: (v: App
         <Label>Clients</Label>
         <div className="flex gap-2">
           <Input value={clientDraft} onChange={(e) => setClientDraft(e.target.value)} placeholder="Add and Enter"
-            onKeyDown={(e) => { if (e.key === "Enter" && clientDraft.trim()) { setDraft({ ...draft, clients: [...draft.clients, clientDraft.trim()] }); setClientDraft(""); } }} />
-          <Button variant="secondary" type="button" onClick={() => { if (clientDraft.trim()) { setDraft({ ...draft, clients: [...draft.clients, clientDraft.trim()] }); setClientDraft(""); } }}><Plus className="h-4 w-4" /></Button>
+            onKeyDown={(e) => { if (e.key === "Enter" && clientDraft.trim()) { setDraft({ ...draft, clients: [...(draft.clients || []), clientDraft.trim()] }); setClientDraft(""); } }} />
+          <Button variant="secondary" type="button" onClick={() => { if (clientDraft.trim()) { setDraft({ ...draft, clients: [...(draft.clients || []), clientDraft.trim()] }); setClientDraft(""); } }}><Plus className="h-4 w-4" /></Button>
         </div>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {draft.clients.map((c, i) => (
+          {(draft.clients as string[] || []).map((c, i) => (
             <span key={i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-secondary">
               {c}
-              <button onClick={() => setDraft({ ...draft, clients: draft.clients.filter((_, j) => j !== i) })} className="hover:text-destructive"><X className="h-3 w-3" /></button>
+              <button onClick={() => setDraft({ ...draft, clients: draft.clients.filter((_: any, j: number) => j !== i) })} className="hover:text-destructive"><X className="h-3 w-3" /></button>
             </span>
           ))}
         </div>
@@ -302,7 +333,7 @@ const NewApptDialog = ({ open, onOpenChange, slot, defaultClient, defaultTitle, 
   defaultClient?: string;
   defaultTitle?: string;
   dealId?: string;
-  onSave: (a: Omit<Appointment, "id">) => void;
+  onSave: (a: any) => void;
 }) => {
   const [title, setTitle] = useState(defaultTitle || "");
   const [duration, setDuration] = useState(30);
@@ -351,7 +382,7 @@ const NewApptDialog = ({ open, onOpenChange, slot, defaultClient, defaultTitle, 
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Clients (multiple allowed at same slot)</Label>
+              <Label>Clients</Label>
               <Button type="button" variant="secondary" size="sm" className="h-7" onClick={addContact}>
                 <Plus className="h-3 w-3 mr-1" /> Add client
               </Button>

@@ -1,5 +1,6 @@
-import { useMemo, useState,useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
+import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ const colorOptions = [
 
 export const CRM = () => {
   const { stages, deals, customers, addDeal, moveDeal, clearLostDeals } = useStore();
+  const user = useAuthStore((s) => s.user);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client: "", title: "", amount: "", stageId: stages[0]?.id ?? "new" });
   const [calOpen, setCalOpen] = useState(false);
@@ -30,6 +32,8 @@ export const CRM = () => {
   const [clientOpen, setClientOpen] = useState(false);
   const [clientSel, setClientSel] = useState<{ name: string; id?: string } | null>(null);
   const [leads, setLeads] = useState<any[]>([]);
+  const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
 
   const lostCount = deals.filter((d) => d.stageId === "lost").length;
 
@@ -44,10 +48,18 @@ export const CRM = () => {
   }, [deals, query]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/leads?businessId=a67ea3b4-f119-42f0-b6e8-cf64753c8528')
+    if (!user?.id) return;
+    fetch(`http://localhost:3000/leads/business/my?userId=${user.id}`)
+      .then(r => r.json())
+      .then(biz => { if (biz?.id) setBusinessId(biz.id); });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`http://localhost:3000/leads?businessId=${businessId}`)
       .then(r => r.json())
       .then(setLeads);
-  }, []);
+  }, [businessId]);
 
   const openClient = (clientName: string) => {
     const cust = customers.find((c) => c.name?.toLowerCase() === clientName.toLowerCase());
@@ -137,6 +149,7 @@ export const CRM = () => {
                   <div
                     key={lead.id}
                     className="rounded-lg bg-secondary/60 p-3 hairline group relative cursor-pointer hover:bg-secondary transition-colors"
+                    onClick={() => { setSelectedLead(lead); setClientOpen(true); }}
                   >
                     <button
                       onClick={(e) => { e.stopPropagation(); setCalCtx({ client: lead.name ?? "", title: "Заявка" }); setCalOpen(true); }}
@@ -216,8 +229,17 @@ export const CRM = () => {
 
       <CustomerDetailDialog
         open={clientOpen}
-        onOpenChange={setClientOpen}
-        customer={selectedCustomer}
+        onOpenChange={(b) => { setClientOpen(b); if (!b) setSelectedLead(null); }}
+        customer={selectedLead ? {
+          id: selectedLead.id,
+          name: selectedLead.name ?? "Unknown",
+          phone: selectedLead.phone,
+          email: selectedLead.email,
+          source: selectedLead.source,
+          status: "LEAD",
+          createdAt: selectedLead.createdAt,
+          tags: [],
+        } as any : selectedCustomer}
         fallbackName={clientSel?.name}
       />
     </div>

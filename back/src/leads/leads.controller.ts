@@ -41,4 +41,8 @@ createBusiness(@Body() body: { userId: string; name: string }) {
     const business = await this.leadsService.getMyBusiness(userId);
     return business ?? {};
   }
+  @Post('business/regenerate-secret')
+regenerateSecret(@Query('userId') userId: string) {
+  return this.leadsService.regenerateSecret(userId);
+}
 }
