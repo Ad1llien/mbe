@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { format, parseISO, isToday, subDays, startOfDay, differenceInMinutes } f
 export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
   const { receipts, transactions, inventory, audit, addTransaction, staff, shifts } = useStore();
   const [activeIdx, setActiveIdx] = useState<number>(0);
+  const [apiReceipts, setApiReceipts] = useState<any[]>([]);
 
   const onShift = shifts.filter((sh) => !sh.end).map((sh) => ({ shift: sh, person: staff.find((p) => p.id === sh.staffId)! })).filter((x) => x.person);
 
-  const todayReceipts = receipts.filter((r) => !r.voided && isToday(parseISO(r.createdAt)));
+  const todayReceipts = apiReceipts.filter((r) => !r.voided && isToday(parseISO(r.createdAt)));
   const revenueToday = todayReceipts.reduce((s, r) => s + r.total, 0);
   const expensesToday = transactions.filter((t) => t.type === "expense" && isToday(parseISO(t.date))).reduce((s, t) => s + t.amount, 0);
   const profit = revenueToday - expensesToday;
@@ -28,14 +29,22 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
       const d = subDays(new Date(), i);
       const dayStart = startOfDay(d).getTime();
       const dayEnd = dayStart + 86400000;
-      const sum = receipts.filter((r) => !r.voided).filter((r) => {
+      const sum = apiReceipts.filter((r) => !r.voided).filter((r) => {
         const t = parseISO(r.createdAt).getTime();
         return t >= dayStart && t < dayEnd;
       }).reduce((s, r) => s + r.total, 0);
       arr.push({ day: format(d, "EEE"), revenue: sum });
     }
     return arr;
-  }, [receipts]);
+  }, [apiReceipts]);
+
+
+
+useEffect(() => {
+  fetch('http://localhost:3000/pos/receipts')
+    .then(r => r.json())
+    .then(setApiReceipts);
+}, []);
 
   return (
     <div className="fade-in">
@@ -119,12 +128,12 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
         <Panel>
           <div className="text-sm font-medium mb-3 flex items-center gap-2"><ReceiptText className="h-4 w-4" /> Recent receipts</div>
           <div className="space-y-2 max-h-[280px] overflow-auto pr-1">
-            {receipts.slice(0, 8).map((r) => (
+            {apiReceipts.slice(0, 8).map((r) => (
               <div key={r.id} className={`flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 ${r.voided ? "opacity-50" : ""}`}>
                 <div className="h-8 w-8 rounded-lg bg-foreground text-background grid place-items-center"><ArrowUpRight className="h-4 w-4" /></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium">{r.number} {r.voided && <span className="text-destructive">• voided</span>}</div>
-                  <div className="text-[10px] text-muted-foreground">{r.lines.map((l) => `${l.qty}× ${l.name}`).join(" • ")}</div>
+                  <div className="text-[10px] text-muted-foreground">{r.items.map((l) => `${l.qty}× ${l.name}`).join(" • ")}</div>
                 </div>
                 <div className="text-xs font-semibold">${r.total.toFixed(2)}</div>
                 <div className="text-[10px] text-muted-foreground">{format(parseISO(r.createdAt), "HH:mm")}</div>
@@ -133,7 +142,7 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
           </div>
         </Panel>
 
-        <RevenuePie receipts={receipts} activeIdx={activeIdx} setActiveIdx={setActiveIdx} />
+        <RevenuePie apiReceipts={apiReceipts} activeIdx={activeIdx} setActiveIdx={setActiveIdx} />
       </div>
     </div>
   );
@@ -141,17 +150,17 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
 
 const PIE_COLORS = ["hsl(var(--foreground))", "hsl(var(--stage-completed))", "hsl(var(--stage-progress))", "hsl(var(--stage-noresponse))", "hsl(var(--stage-new))", "hsl(var(--muted-foreground))"];
 
-const RevenuePie = ({ receipts, activeIdx, setActiveIdx }: { receipts: any[]; activeIdx: number; setActiveIdx: (n: number) => void }) => {
+const RevenuePie = ({ apiReceipts, activeIdx, setActiveIdx }: { apiReceipts: any[]; activeIdx: number; setActiveIdx: (n: number) => void }) => {
   const data = useMemo(() => {
     const totals = new Map<string, { name: string; revenue: number; qty: number }>();
-    receipts.filter((r) => !r.voided).forEach((r) => r.lines.forEach((l: any) => {
+    apiReceipts.filter((r) => !r.voided).forEach((r) => r.items.forEach((l: any) => {
       const cur = totals.get(l.name) || { name: l.name, revenue: 0, qty: 0 };
       cur.revenue += l.price * l.qty;
       cur.qty += l.qty;
       totals.set(l.name, cur);
     }));
     return Array.from(totals.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 6);
-  }, [receipts]);
+  }, [apiReceipts]);
 
   const total = data.reduce((s, d) => s + d.revenue, 0);
   const totalQty = data.reduce((s, d) => s + d.qty, 0);

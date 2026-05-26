@@ -253,17 +253,7 @@ export const useStore = create<State>((set, get) => ({
     { id: uid(), label: "Rent", amount: 1800, type: "expense", date: daysAgo(1), category: "Rent" },
   ],
   inventory: [
-    { id: milkId, name: "Milk", sku: "ING-MLK", stock: 4200, threshold: 2000, price: 0.004, unit: "ml" },
-    { id: beanId, name: "Coffee beans", sku: "ING-BEAN", stock: 1800, threshold: 500, price: 0.05, unit: "g" },
-    { id: cupId, name: "Paper cup 12oz", sku: "ING-CUP", stock: 120, threshold: 50, price: 0.12, unit: "pcs" },
-    { id: syrupId, name: "Vanilla syrup", sku: "ING-SYR", stock: 800, threshold: 300, price: 0.02, unit: "ml" },
-    { id: cappId, name: "Cappuccino", sku: "PRD-CAP", stock: 0, threshold: 0, price: 4.5, unit: "pcs", isProduct: true,
-      recipe: [{ itemId: milkId, qty: 200 }, { itemId: beanId, qty: 18 }, { itemId: cupId, qty: 1 }] },
-    { id: espId, name: "Espresso", sku: "PRD-ESP", stock: 0, threshold: 0, price: 3, unit: "pcs", isProduct: true,
-      recipe: [{ itemId: beanId, qty: 9 }, { itemId: cupId, qty: 1 }] },
-    { id: latteId, name: "Vanilla Latte", sku: "PRD-LAT", stock: 0, threshold: 0, price: 5.2, unit: "pcs", isProduct: true,
-      recipe: [{ itemId: milkId, qty: 220 }, { itemId: beanId, qty: 18 }, { itemId: cupId, qty: 1 }, { itemId: syrupId, qty: 15 }] },
-    { id: croissantId, name: "Croissant", sku: "PRD-CRS", stock: 8, threshold: 6, price: 3.8, unit: "pcs", isProduct: true },
+    
   ],
   tasks: [
     { id: uid(), title: "Order milk delivery", due: new Date(today.getTime() + 3600_000 * 5).toISOString(), done: false },
@@ -277,14 +267,10 @@ export const useStore = create<State>((set, get) => ({
     { id: uid(), phone: "+1 555 0299", name: "Helix Labs", email: "ops@helix.dev", source: "TikTok", city: "SF", createdAt: daysAgo(20), tags: ["b2b", "platform"], status: "vip" },
   ],
   heldOrders: [
-    { id: uid(), label: "Table 4", lines: [
-      { itemId: cappId, name: "Cappuccino", price: 4.5, qty: 2 },
-      { itemId: croissantId, name: "Croissant", price: 3.8, qty: 1 },
-    ], createdAt: minsAgo(4) },
+   
   ],
   receipts: [
-    { id: uid(), number: "Z-1001", lines: [{ itemId: espId, name: "Espresso", price: 3, qty: 1 }], total: 3, cashierId: "cashier-1", createdAt: minsAgo(35) },
-    { id: uid(), number: "Z-1002", lines: [{ itemId: cappId, name: "Cappuccino", price: 4.5, qty: 2 }], total: 9, cashierId: "cashier-1", createdAt: minsAgo(20) },
+    
   ],
   audit: [
     { id: uid(), at: minsAgo(18), actor: "cashier-1", action: "Discount applied", detail: "Z-1002 • -10%", severity: "warn" },
@@ -321,10 +307,7 @@ export const useStore = create<State>((set, get) => ({
     autoRenew: true,
   },
   prepInstructions: {
-    [cappId]: "1. Grind 18g of beans (medium-fine)\n2. Pull a double espresso (~25s, 36g out)\n3. Steam 200ml milk to 65°C, microfoam\n4. Pour into 12oz cup — heart latte art\n5. Serve immediately",
-    [espId]: "1. Grind 9g of beans (fine)\n2. Tamp evenly, 30lb pressure\n3. Pull single shot, 22–28s\n4. Serve in warm demitasse cup",
-    [latteId]: "1. Pull double espresso (18g in / 36g out)\n2. Add 15ml vanilla syrup to cup\n3. Steam 220ml milk silky\n4. Pour latte art on top\n5. Sleeve cup, serve",
-    [croissantId]: "Reheat 90s at 160°C in convection oven. Serve on small plate with butter knife.",
+    
   },
 
   addStage: () => set((s) => ({ stages: [...s.stages, { id: uid(), label: "New Stage", color: "stage-progress" }] })),

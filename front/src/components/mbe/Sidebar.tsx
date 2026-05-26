@@ -2,7 +2,7 @@ import { Logo } from "./Logo";
 import { LayoutGrid, Wallet, Boxes, Users, ListChecks, Settings, User, ShoppingBag, Activity, Crown, UserCog, Gift, FileBarChart2, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import React from "react";
-
+import { useAuthStore } from '@/store/authStore';
 export type Section =
   | "dashboard" | "pos" | "finance" | "inventory" | "crm" | "tasks" | "calendar"
   | "staff" | "premium" | "referral" | "reports"
@@ -27,7 +27,12 @@ const bottom: typeof items = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
+
+
 export const Sidebar = ({ active, onChange }: { active: Section; onChange: (s: Section) => void }) => {
+  const user = useAuthStore((s) => s.user);
+const email = user?.email ?? '';
+const initials = email.slice(0, 2).toUpperCase();
   return (
     <aside className="w-[240px] shrink-0 h-screen sticky top-0 panel border-r border-border flex flex-col">
       <div className="px-6 pt-7 pb-5 border-b border-border flex items-center justify-center">
@@ -81,11 +86,11 @@ export const Sidebar = ({ active, onChange }: { active: Section; onChange: (s: S
           );
         })}
         <div className="mt-3 flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/50">
-          <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-semibold">AM</div>
-          <div className="leading-tight">
-            <div className="text-xs font-medium">Alex Mercer</div>
-            <div className="text-[10px] text-muted-foreground">Owner</div>
-          </div>
+          <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-semibold">{initials}</div>
+<div className="leading-tight">
+  <div className="text-xs font-medium">{email}</div>
+  <div className="text-[10px] text-muted-foreground">Owner</div>
+</div>
         </div>
       </div>
     </aside>

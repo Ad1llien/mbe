@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState,useEffect } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export const CRM = () => {
   const [query, setQuery] = useState("");
   const [clientOpen, setClientOpen] = useState(false);
   const [clientSel, setClientSel] = useState<{ name: string; id?: string } | null>(null);
+  const [leads, setLeads] = useState<any[]>([]);
 
   const lostCount = deals.filter((d) => d.stageId === "lost").length;
 
@@ -41,6 +42,12 @@ export const CRM = () => {
       String(d.amount).includes(q),
     );
   }, [deals, query]);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/leads?businessId=a67ea3b4-f119-42f0-b6e8-cf64753c8528')
+      .then(r => r.json())
+      .then(setLeads);
+  }, []);
 
   const openClient = (clientName: string) => {
     const cust = customers.find((c) => c.name?.toLowerCase() === clientName.toLowerCase());
@@ -112,9 +119,10 @@ export const CRM = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-        {stages.map((stage) => {
+        {stages.map((stage, stageIdx) => {
           const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
           const total = stageDeals.reduce((s, d) => s + d.amount, 0);
+          const stageLeads = leads.filter((l) => l.status === stage.id);
           return (
             <Panel key={stage.id} className="min-h-[420px]">
               <div className="flex items-center justify-between mb-3">
@@ -122,9 +130,47 @@ export const CRM = () => {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(var(--${stage.color}))` }} />
                   <div className="text-sm font-medium">{stage.label}</div>
                 </div>
-                <div className="text-[10px] text-muted-foreground">{stageDeals.length} • ${total.toLocaleString()}</div>
+                <div className="text-[10px] text-muted-foreground">{stageDeals.length + stageLeads.length} • ${total.toLocaleString()}</div>
               </div>
               <div className="space-y-2">
+                {stageLeads.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="rounded-lg bg-secondary/60 p-3 hairline group relative cursor-pointer hover:bg-secondary transition-colors"
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCalCtx({ client: lead.name ?? "", title: "Заявка" }); setCalOpen(true); }}
+                      className="absolute top-2 right-2 h-6 w-6 grid place-items-center rounded-md bg-background/60 hover:bg-foreground hover:text-background transition-all opacity-70 hover:opacity-100"
+                      title="Schedule appointment"
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />
+                    </button>
+                    <div className="text-xs text-muted-foreground pr-7">{lead.name}</div>
+                    <div className="text-sm font-medium pr-7">{lead.phone}</div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="text-[10px] text-muted-foreground">{lead.email}</div>
+                      <div className="text-[10px] text-muted-foreground">{format(parseISO(lead.createdAt), "MMM d")}</div>
+                    </div>
+                    <div className="mt-2">
+                      <Select
+                        value={lead.status}
+                        onValueChange={(v) => {
+                          fetch(`http://localhost:3000/leads/${lead.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: v }),
+                          });
+                          setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: v } : l));
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-[11px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
                 {stageDeals.map((d) => (
                   <div
                     key={d.id}
@@ -153,7 +199,7 @@ export const CRM = () => {
                     </div>
                   </div>
                 ))}
-                {stageDeals.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">No deals</div>}
+                {stageDeals.length === 0 && stageLeads.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">No deals</div>}
               </div>
             </Panel>
           );

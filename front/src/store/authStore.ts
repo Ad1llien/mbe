@@ -23,47 +23,18 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
 
-      login: async (email: string, password: string) => {
-        // Моковые пользователи — потом заменишь на NestJS API
-        const mockUsers = [
-          {
-            id: '1',
-            name: 'Admin',
-            email: 'admin@mbe.com',
-            password: 'admin123',
-            role: 'admin' as const,
-          },
-          {
-            id: '2',
-            name: 'Manager',
-            email: 'manager@mbe.com',
-            password: 'manager123',
-            role: 'manager' as const,
-          },
-          {
-            id: '3',
-            name: 'Cashier',
-            email: 'cashier@mbe.com',
-            password: 'cashier123',
-            role: 'cashier' as const,
-          },
-        ]
-
-        const found = mockUsers.find(
-          (u) => u.email === email && u.password === password
-        )
-
-        if (found) {
-          const { password: _, ...user } = found
-          set({
-            user,
-            token: 'mock-jwt-token',
-            isAuthenticated: true,
-          })
-          return true
-        }
-
-        return false
+      login: async (email, password) => {
+        const res = await fetch('http://localhost:3000/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+      
+        if (!res.ok) return false;
+      
+        const { access_token, user } = await res.json();
+        set({ user, token: access_token, isAuthenticated: true });
+        return true;
       },
 
       logout: () => {

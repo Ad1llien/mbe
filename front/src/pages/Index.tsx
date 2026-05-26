@@ -14,6 +14,7 @@ import { Profile, SettingsPage } from "@/components/mbe/Misc";
 import { Bell, Search, Sun, Moon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { CalendarPage } from "@/components/mbe/CalendarPage";
+import { useAuthStore } from '@/store/authStore';
 
 const Index = () => {
   const [active, setActive] = useState<Section>("dashboard");
@@ -28,6 +29,10 @@ const Index = () => {
       document.documentElement.classList.remove("dark");
     }
   }, [dark]);
+
+  const user = useAuthStore((s) => s.user);
+  const email = user?.email ?? '';
+  const initials = email.slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
@@ -49,7 +54,7 @@ const Index = () => {
             <button className="h-9 w-9 rounded-lg bg-secondary grid place-items-center hover:bg-accent transition-colors">
               <Bell className="h-4 w-4" />
             </button>
-            <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground grid place-items-center text-xs font-semibold">AM</div>
+            <div className="h-9 w-9 rounded-lg bg-primary text-primary-foreground grid place-items-center text-xs font-semibold">{initials}</div>
           </div>
         </header>
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,13 @@ export const Finance = () => {
   const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<RangeKey | "custom">("30d");
+  const [apiReceipts, setApiReceipts] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/pos/receipts')
+      .then(r => r.json())
+      .then(setApiReceipts);
+  }, []);
 
   const days = activeTab !== "custom" ? ranges[activeTab as RangeKey] : 30;
   const now = new Date();
@@ -37,23 +44,32 @@ export const Finance = () => {
     ? customRange.to
     : now;
 
+  const posIncome = apiReceipts
+    .filter(r => !r.voided && isWithinInterval(parseISO(r.createdAt), { start, end }))
+    .reduce((s, r) => s + r.total, 0);
+
   const series = useMemo(() => {
     const arr: { date: string; income: number }[] = [];
     const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     for (let i = totalDays; i >= 0; i--) {
       const d = subDays(end, i);
       const key = format(d, "MMM d");
-      const income = transactions
+      const manualIncome = transactions
         .filter((t) => t.type === "income" && format(parseISO(t.date), "yyyy-MM-dd") === format(d, "yyyy-MM-dd"))
         .reduce((s, t) => s + t.amount, 0);
-      arr.push({ date: key, income });
+      const posDay = apiReceipts
+        .filter(r => !r.voided && format(parseISO(r.createdAt), "yyyy-MM-dd") === format(d, "yyyy-MM-dd"))
+        .reduce((s, r) => s + r.total, 0);
+      arr.push({ date: key, income: manualIncome + posDay });
     }
     return arr;
-  }, [transactions, start, end]);
+  }, [transactions, apiReceipts, start, end]);
 
   const totalIncome = transactions
     .filter((t) => t.type === "income" && isWithinInterval(parseISO(t.date), { start, end }))
     .reduce((s, t) => s + t.amount, 0);
+
+  const totalIncomeWithPos = totalIncome + posIncome;
 
   const totalExpense = transactions
     .filter((t) => t.type === "expense" && isWithinInterval(parseISO(t.date), { start, end }))
@@ -147,9 +163,9 @@ export const Finance = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Stat
           label={`Total income (${activeTab === "custom" ? "custom" : activeTab})`}
-          value={`$${totalIncome.toLocaleString()}`}
+          value={`$${totalIncomeWithPos.toLocaleString()}`}
           delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`}
-          tone={totalIncome > 0 ? "pos" : "neutral"}
+          tone={totalIncomeWithPos > 0 ? "pos" : "neutral"}
         />
         <Stat
           label="Expenses"
@@ -159,9 +175,9 @@ export const Finance = () => {
         />
         <Stat
           label="Net (income − expenses)"
-          value={`${totalIncome - totalExpense >= 0 ? "+" : "−"}$${Math.abs(totalIncome - totalExpense).toLocaleString()}`}
-          delta={totalIncome - totalExpense > 0 ? "profit" : totalIncome - totalExpense < 0 ? "loss" : "break-even"}
-          tone={totalIncome - totalExpense > 0 ? "pos" : totalIncome - totalExpense < 0 ? "neg" : "neutral"}
+          value={`${totalIncomeWithPos - totalExpense >= 0 ? "+" : "−"}$${Math.abs(totalIncomeWithPos - totalExpense).toLocaleString()}`}
+          delta={totalIncomeWithPos - totalExpense > 0 ? "profit" : totalIncomeWithPos - totalExpense < 0 ? "loss" : "break-even"}
+          tone={totalIncomeWithPos - totalExpense > 0 ? "pos" : totalIncomeWithPos - totalExpense < 0 ? "neg" : "neutral"}
         />
         <Stat
           label="Completed deals"

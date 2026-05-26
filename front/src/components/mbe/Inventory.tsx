@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useStore, InventoryItem } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -15,15 +15,18 @@ export const Inventory = () => {
   const { inventory, addInventory, updateStock } = useStore();
   const [tab, setTab] = useState<Tab>("stock");
   const [open, setOpen] = useState(false);
+  const [apiProducts, setApiProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/pos/products')
+      .then(r => r.json())
+      .then(setApiProducts);
+  }, []);
 
   const stock = inventory.filter((i) => !i.isProduct);
-  const sale = inventory.filter((i) => i.isProduct);
-
   const totalValue = stock.reduce((s, i) => s + i.stock * i.price, 0);
-  // alert only items with threshold > 0 (manual alert enabled)
   const low = stock.filter((i) => i.threshold > 0 && i.stock <= i.threshold);
-
-  const list = tab === "stock" ? stock : sale;
+  const list = tab === "stock" ? stock : apiProducts;
 
   return (
     <div className="fade-in">
@@ -35,14 +38,19 @@ export const Inventory = () => {
             <DialogTrigger asChild>
               <Button className="h-9"><Plus className="h-4 w-4 mr-1" /> Add {tab === "stock" ? "stock item" : "product"}</Button>
             </DialogTrigger>
-            <AddItemDialog tab={tab} onClose={() => setOpen(false)} onSave={addInventory} />
+            <AddItemDialog
+              tab={tab}
+              onClose={() => setOpen(false)}
+              onSave={addInventory}
+              onProductAdded={(p) => setApiProducts(prev => [...prev, p])}
+            />
           </Dialog>
         }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Stat label="Stock SKUs" value={`${stock.length}`} />
-        <Stat label="Sale items" value={`${sale.length}`} />
+        <Stat label="Sale items" value={`${apiProducts.length}`} />
         <Stat label="Stock value" value={`$${totalValue.toLocaleString()}`} delta={low.length ? `${low.length} low alerts` : "All good"} />
       </div>
 
@@ -61,7 +69,7 @@ export const Inventory = () => {
       {/* Tabs */}
       <div className="inline-flex p-1 rounded-xl bg-secondary hairline mb-4">
         <TabButton active={tab === "stock"} onClick={() => setTab("stock")} icon={<Warehouse className="h-3.5 w-3.5" />} label="Warehouse stock" count={stock.length} />
-        <TabButton active={tab === "sale"} onClick={() => setTab("sale")} icon={<Store className="h-3.5 w-3.5" />} label="On sale" count={sale.length} />
+        <TabButton active={tab === "sale"} onClick={() => setTab("sale")} icon={<Store className="h-3.5 w-3.5" />} label="On sale" count={apiProducts.length} />
       </div>
 
       <Panel>
@@ -89,7 +97,7 @@ const TabButton = ({ active, onClick, icon, label, count }: { active: boolean; o
   </button>
 );
 
-const Row = ({ item: i, onAdjust }: { item: InventoryItem; onAdjust: (id: string, delta: number) => void }) => {
+const Row = ({ item: i, onAdjust }: { item: any; onAdjust: (id: string, delta: number) => void }) => {
   const isLow = i.threshold > 0 && !i.isProduct && i.stock <= i.threshold;
   return (
     <div className="flex items-center gap-4 py-3">
@@ -111,7 +119,7 @@ const Row = ({ item: i, onAdjust }: { item: InventoryItem; onAdjust: (id: string
           <div className="text-[10px] text-muted-foreground">auto from recipe</div>
         ) : (
           <>
-            <div className={`text-sm font-semibold ${isLow ? "text-destructive" : ""}`}>{i.stock} {i.unit || ""}</div>
+            <div className={`text-sm font-semibold ${isLow ? "text-destructive" : ""}`}>{i.stock ?? "—"} {i.unit || ""}</div>
             <div className="text-[10px] text-muted-foreground">{i.threshold > 0 ? `alert at ${i.threshold}` : "no alert"}</div>
           </>
         )}
@@ -124,27 +132,51 @@ const Row = ({ item: i, onAdjust }: { item: InventoryItem; onAdjust: (id: string
   );
 };
 
-const AddItemDialog = ({ tab, onClose, onSave }: { tab: Tab; onClose: () => void; onSave: (i: Omit<InventoryItem, "id">) => void }) => {
+const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
+  tab: Tab;
+  onClose: () => void;
+  onSave: (i: Omit<InventoryItem, "id">) => void;
+  onProductAdded: (p: any) => void;
+}) => {
   const [form, setForm] = useState({ name: "", sku: "", stock: "", price: "", unit: "" });
   const [alertOn, setAlertOn] = useState(false);
-  const [alertPct, setAlertPct] = useState("50"); // default suggested 50%
+  const [alertPct, setAlertPct] = useState("50");
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const isProduct = tab === "sale";
 
   const submit = () => {
     if (!form.name) return;
+
+    if (isProduct) {
+      fetch('http://localhost:3000/pos/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          sku: form.sku || 'PRD-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
+          price: Number(form.price) || 0,
+          unit: form.unit || 'pcs',
+        }),
+      })
+        .then(r => r.json())
+        .then(newProduct => {
+          onProductAdded(newProduct);
+          onClose();
+        });
+      return;
+    }
+
     const stockN = Number(form.stock) || 0;
-    // threshold 0 = no alert (disabled)
-    const threshold = !isProduct && alertOn ? Math.max(1, Math.round(stockN * (Number(alertPct) || 50) / 100)) : 0;
+    const threshold = alertOn ? Math.max(1, Math.round(stockN * (Number(alertPct) || 50) / 100)) : 0;
     onSave({
       name: form.name,
-      sku: form.sku || (isProduct ? "PRD-" : "ING-") + Math.random().toString(36).slice(2, 6).toUpperCase(),
+      sku: form.sku || 'ING-' + Math.random().toString(36).slice(2, 6).toUpperCase(),
       stock: stockN,
       threshold,
       price: Number(form.price) || 0,
-      unit: form.unit || (isProduct ? "pcs" : "pcs"),
-      isProduct,
+      unit: form.unit || 'pcs',
+      isProduct: false,
     });
     onClose();
   };
@@ -191,7 +223,7 @@ const AddItemDialog = ({ tab, onClose, onSave }: { tab: Tab; onClose: () => void
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-medium flex items-center gap-2"><Paperclip className="h-3.5 w-3.5" /> Attach file</div>
-              <div className="text-[11px] text-muted-foreground truncate">{file ? file.name : "Spec sheet, invoice, photo… (UI only — wiring later)"}</div>
+              <div className="text-[11px] text-muted-foreground truncate">{file ? file.name : "Spec sheet, invoice, photo… (UI only)"}</div>
             </div>
             <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <Button type="button" variant="secondary" className="h-8" onClick={() => fileRef.current?.click()}>
