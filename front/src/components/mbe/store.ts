@@ -37,6 +37,8 @@ export type InventoryItem = {
   price: number;
   unit?: string; // ml, g, pcs
   isProduct?: boolean; // sellable in POS
+  sellInPos?: boolean; // warehouse item linked to POS
+  linkedProductId?: string; // POS product id for stock tracking
   recipe?: RecipeItem[]; // ingredients consumed on sale
   prepSteps?: string[]; // optional preparation/cooking steps
 };

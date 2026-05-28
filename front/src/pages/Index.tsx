@@ -19,15 +19,17 @@ import { useAuthStore } from '@/store/authStore';
 const Index = () => {
   const [active, setActive] = useState<Section>("dashboard");
   const [dark, setDark] = useState(() => {
-    return document.documentElement.classList.contains("dark");
+    return localStorage.getItem("mbe-theme") !== "light";
   });
 
   useEffect(() => {
+    const root = document.documentElement;
     if (dark) {
-      document.documentElement.classList.add("dark");
+      root.classList.remove("light");
     } else {
-      document.documentElement.classList.remove("dark");
+      root.classList.add("light");
     }
+    localStorage.setItem("mbe-theme", dark ? "dark" : "light");
   }, [dark]);
 
   const user = useAuthStore((s) => s.user);

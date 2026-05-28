@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Clock, Trash2, Check } from "lucide-react";
+import { Plus, Clock, Trash2, Check, PenLine } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow, differenceInMinutes } from "date-fns";
+import { Whiteboard } from "./Whiteboard";
 
 const API = "http://localhost:3000";
 
@@ -14,6 +15,7 @@ export const TaskList = () => {
   const user = useAuthStore((s) => s.user);
   const [tasks, setTasks] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [time, setTime] = useState("12:00");
@@ -70,6 +72,10 @@ export const TaskList = () => {
         title="Task List"
         subtitle="Plan your day with deadlines and times."
         action={
+          <div className="flex gap-2">
+            <Button variant="secondary" className="h-9" onClick={() => setBoardOpen(true)}>
+              <PenLine className="h-4 w-4 mr-1" /> Whiteboard
+            </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button className="h-9"><Plus className="h-4 w-4 mr-1" /> New task</Button></DialogTrigger>
             <DialogContent>
@@ -86,8 +92,11 @@ export const TaskList = () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         }
       />
+
+      <Whiteboard open={boardOpen} onClose={() => setBoardOpen(false)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Panel className="lg:col-span-2">

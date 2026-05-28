@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mail, Lock, Loader2, ArrowRight, Building2, Phone, MessageCircle, User as UserIcon } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight, Building2, Phone, MessageCircle, User as UserIcon, Gift } from "lucide-react";
 
 const schema = z.object({
   fullName: z.string().trim().min(2, "Введите ваше имя"),
@@ -38,19 +38,33 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [refCode, setRefCode] = useState(() => new URLSearchParams(window.location.search).get("ref") || "");
+  const [refValid, setRefValid] = useState<boolean | null>(null);
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { fullName: "", companyName: "", email: "", phone: "", password: "", confirm: "", deliveryMethod: "whatsapp", agree: false as unknown as true },
   });
 
-  const onSubmit = (data: FormValues) => {
+  const checkRefCode = async (code: string) => {
+    if (!code) { setRefValid(null); return; }
+    const res = await fetch(`http://localhost:3000/auth/check-ref?code=${code}`).then(r => r.json());
+    setRefValid(res.valid);
+  };
+
+  const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await fetch("http://localhost:3000/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email, password: data.password, refCode: refCode || undefined }),
+      });
+      setToast(refCode && refValid ? "🎁 Промокод применён! +$15 бонус рефереру" : "Письмо с подтверждением отправлено");
+      setTimeout(() => navigate("/onboarding"), 1000);
+    } finally {
       setLoading(false);
-      setToast(data.deliveryMethod === "whatsapp" ? "Код отправлен в WhatsApp" : "Код отправлен на Email");
-      setTimeout(() => navigate("/onboarding"), 800);
-    }, 1200);
+    }
   };
 
   return (
@@ -101,6 +115,23 @@ export default function RegisterPage() {
                   ))}
                 </div>
               )} />
+            </div>
+
+            {/* Promo/referral code */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium uppercase tracking-wider text-white/60">Промокод <span className="normal-case text-white/30">(необязательно)</span></label>
+              <div className="relative">
+                <Gift className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                <input
+                  value={refCode}
+                  onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefValid(null); }}
+                  onBlur={() => checkRefCode(refCode)}
+                  placeholder="MBE-XXXXX"
+                  className={`${inputCls} ${refValid === true ? "border-green-500/60" : refValid === false ? "border-red-500/60" : ""}`}
+                />
+                {refValid === true && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-xs">✓ Действителен</span>}
+                {refValid === false && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-xs">✗ Не найден</span>}
+              </div>
             </div>
 
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/70 transition-colors hover:border-white/20">

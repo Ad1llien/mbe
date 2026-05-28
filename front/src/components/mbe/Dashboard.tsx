@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
+import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,15 +8,23 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Sector } from "recharts";
-import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck, Clock } from "lucide-react";
-import { format, parseISO, isToday, subDays, startOfDay, differenceInMinutes } from "date-fns";
+import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck } from "lucide-react";
+import { format, parseISO, isToday, subDays, startOfDay } from "date-fns";
+
+const API = "http://localhost:3000";
+
+const ROLE_COLOR: Record<string, string> = {
+  cashier:   "hsl(var(--stage-completed))",
+  manager:   "hsl(var(--stage-progress))",
+  admin:     "hsl(var(--stage-noresponse))",
+};
 
 export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
-  const { receipts, transactions, inventory, audit, addTransaction, staff, shifts } = useStore();
-  const [activeIdx, setActiveIdx] = useState<number>(0);
+  const { transactions, inventory, addTransaction } = useStore();
+  const user = useAuthStore(s => s.user);
+  const [activeIdx, setActiveIdx]   = useState<number>(0);
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
-
-  const onShift = shifts.filter((sh) => !sh.end).map((sh) => ({ shift: sh, person: staff.find((p) => p.id === sh.staffId)! })).filter((x) => x.person);
+  const [apiStaff, setApiStaff]     = useState<any[]>([]);
 
   const todayReceipts = apiReceipts.filter((r) => !r.voided && isToday(parseISO(r.createdAt)));
   const revenueToday = todayReceipts.reduce((s, r) => s + r.total, 0);
@@ -40,11 +49,20 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
 
 
 
-useEffect(() => {
-  fetch('http://localhost:3000/pos/receipts')
-    .then(r => r.json())
-    .then(setApiReceipts);
-}, []);
+  useEffect(() => {
+    fetch(`${API}/pos/receipts`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setApiReceipts(data); });
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API}/staff?ownerId=${user.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setApiStaff(data); });
+  }, [user?.id]);
+
+  const activeStaff = apiStaff;
 
   return (
     <div className="fade-in">
@@ -96,27 +114,37 @@ useEffect(() => {
 
         <Panel>
           <div className="flex items-center justify-between mb-3">
-            <div className="text-sm font-medium flex items-center gap-2"><UserCheck className="h-4 w-4 text-[hsl(var(--stage-completed))]" /> Active staff</div>
+            <div className="text-sm font-medium flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-[hsl(var(--stage-completed))]" />
+              Active staff
+              {activeStaff.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(var(--stage-completed))]/15 text-[hsl(var(--stage-completed))] font-semibold">
+                  {activeStaff.length}
+                </span>
+              )}
+            </div>
             <button className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => onGoto?.("staff")}>manage →</button>
           </div>
           <div className="space-y-2 max-h-[260px] overflow-auto pr-1">
-            {onShift.length === 0 && <div className="text-xs text-muted-foreground py-6 text-center">Nobody clocked in</div>}
-            {onShift.map(({ shift, person }) => {
-              const mins = differenceInMinutes(new Date(), parseISO(shift.start));
-              const h = Math.floor(mins / 60); const m = mins % 60;
+            {activeStaff.length === 0 && (
+              <div className="text-xs text-muted-foreground py-6 text-center">No active staff</div>
+            )}
+            {activeStaff.map(person => {
+              const initials = person.name.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase();
+              const roleColor = ROLE_COLOR[person.role] ?? "hsl(var(--muted-foreground))";
               return (
-                <div key={shift.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 hairline">
-                  <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-[11px] font-semibold">
-                    {person.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                <div key={person.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 hairline">
+                  <div className="h-9 w-9 rounded-full bg-primary text-primary-foreground grid place-items-center text-[11px] font-semibold shrink-0">
+                    {initials}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium truncate">{person.name}</div>
-                    <div className="text-[10px] text-muted-foreground capitalize">{person.role}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{person.email}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs font-semibold tabular-nums flex items-center gap-1 justify-end"><Clock className="h-3 w-3" />{h}h {m}m</div>
-                    <div className="text-[10px] text-[hsl(var(--stage-completed))]">on shift</div>
-                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium capitalize shrink-0"
+                    style={{ color: roleColor, background: roleColor + "22" }}>
+                    {person.role}
+                  </span>
                 </div>
               );
             })}

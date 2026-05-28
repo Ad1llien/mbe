@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { EmailModule } from './email/email.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { StaffModule } from './staff/staff.module';
 @Module({
   imports: [
     PrismaModule,
@@ -20,6 +21,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
     LeadsModule,
     TasksModule,
     AppointmentsModule,
+    StaffModule,
 
   ],
   controllers: [AppController],

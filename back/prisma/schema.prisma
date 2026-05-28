@@ -8,12 +8,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
   isVerified        Boolean  @default(false)
   verificationToken String?
-  createdAt DateTime @default(now())
+  referralCode      String   @unique @default(dbgenerated("gen_random_uuid()"))
+  referredBy        String?
+  bonusBalance      Float    @default(0)
+  createdAt         DateTime @default(now())
 }
 
 model Product {
@@ -75,6 +78,46 @@ model Task {
   due       DateTime
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model StaffMember {
+  id          String          @id @default(uuid())
+  ownerId     String
+  name        String
+  email       String          @unique
+  password    String
+  role        String          @default("cashier")
+  phone       String
+  pin         String
+  kpiTarget   Int             @default(0)
+  status      String          @default("active")
+  verified    Boolean         @default(false)
+  verifyToken String?         @unique
+  hiredAt     DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  activities  StaffActivity[]
+  shifts      StaffShift[]
+}
+
+model StaffShift {
+  id        String      @id @default(uuid())
+  staffId   String
+  staff     StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  clockIn   DateTime
+  clockOut  DateTime?
+  note      String?
+  editedBy  String?
+  createdAt DateTime    @default(now())
+}
+
+model StaffActivity {
+  id        String      @id @default(uuid())
+  staffId   String
+  staff     StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  type      String      // login, shift_start, shift_end, sale
+  note      String?
+  amount    Float?
+  createdAt DateTime    @default(now())
 }
 
 model Appointment {

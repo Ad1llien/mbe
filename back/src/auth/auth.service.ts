@@ -19,28 +19,37 @@ import {
 
     ) {}
   
-    async register(email: string, password: string) {
+    async register(email: string, password: string, refCode?: string) {
       const candidate = await this.usersService.findByEmail(email);
-    
+
       if (candidate) {
         throw new BadRequestException('User already exists');
       }
-    
+
+      // Validate refCode if provided
+      let validRef: string | undefined;
+      if (refCode) {
+        const referrer = await this.usersService.findByReferralCode(refCode);
+        if (referrer) validRef = refCode;
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
       const verificationToken = crypto.randomBytes(32).toString('hex');
-    
+
       const user = await this.usersService.create(
         email,
         hashedPassword,
         verificationToken,
+        validRef,
       );
-    
+
       const verificationLink = `http://localhost:8080/verify-email?token=${verificationToken}`;
       await this.emailService.sendVerificationEmail(email, verificationLink);
-    
+
       return {
         message: 'User created',
         user,
+        bonusApplied: !!validRef,
       };
     }
   
