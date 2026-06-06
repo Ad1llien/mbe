@@ -6,10 +6,13 @@ export class EmailService {
   private resend: Resend;
 
   constructor() {
-    this.resend = new Resend(process.env.RESEND_API_KEY);
+    const key = process.env.RESEND_API_KEY;
+    console.log('[EmailService] RESEND_API_KEY present:', !!key);
+    this.resend = new Resend(key);
   }
 
   async sendVerificationEmail(email: string, verificationLink: string) {
+    console.log('[EmailService] sendVerificationEmail called for', email);
     try {
       const { error } = await this.resend.emails.send({
         from: 'MBE <onboarding@resend.dev>',
