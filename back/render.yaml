@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mbe-backend
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build && npx prisma db push
+    startCommand: npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

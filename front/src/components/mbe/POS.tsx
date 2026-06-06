@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useStore, CartLine, Customer } from "./store";
 import { Panel, SectionHeader } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Minus, X, PauseCircle, PlayCircle, ReceiptText, User, Trash2, Search, HelpCircle, History, Calendar as CalendarIcon, Eye, Ban, CheckCircle2, AlertTriangle, Copy, Printer} from "lucide-react";
 import { format, parseISO, isSameDay} from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { API } from "@/lib/config";
 
 export const POS = () => {
   const { inventory, holdOrder, heldOrders, resumeOrder, removeHeldOrder, checkoutOrder, customers, addCustomer, log, prepInstructions } = useStore();
@@ -48,11 +49,11 @@ export const POS = () => {
   ];
 
   useEffect(() => {
-    fetch('http://localhost:3000/pos/products')
+    fetch(`${API}/pos/products`)
       .then(r => r.json())
       .then(setProducts);
   
-    fetch('http://localhost:3000/pos/receipts')
+    fetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(setReceipts);
   }, []);
@@ -91,7 +92,7 @@ export const POS = () => {
 
   const checkout = async () => {
     if (cart.length === 0) return;
-    const res = await fetch('http://localhost:3000/pos/receipts', {
+    const res = await fetch(`${API}/pos/receipts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lines: cart.map(l => ({
@@ -382,7 +383,7 @@ export const POS = () => {
 
             const  confirmVoid = async () => {
               if (!finalReason) return;
-              await fetch(`http://localhost:3000/pos/receipts/${r.id}/void`, {
+              await fetch(`${API}/pos/receipts/${r.id}/void`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reason: finalReason }),

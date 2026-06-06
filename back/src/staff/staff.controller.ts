@@ -13,7 +13,7 @@ export class StaffController {
   @Post()
   createStaff(
     @Query('ownerId') ownerId: string,
-    @Body() body: { name: string; email: string; role: string; phone: string; kpiTarget?: number; pin?: string },
+    @Body() body: { name: string; email: string; role: string; phone: string; kpiTarget?: number; pin?: string; permissions?: string[] },
   ) {
     return this.staffService.createStaff(ownerId, body);
   }

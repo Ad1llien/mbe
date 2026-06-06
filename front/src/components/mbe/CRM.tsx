@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader } from "./ui";
@@ -12,6 +12,7 @@ import { Plus, Settings2, Pencil, CalendarDays, Search, Trash2 } from "lucide-re
 import { format, parseISO } from "date-fns";
 import { CalendarDialog } from "./Calendar";
 import { CustomerDetailDialog } from "./CustomerDetailDialog";
+import { API } from "@/lib/config";
 
 const colorOptions = [
   { id: "stage-new", label: "Red" },
@@ -49,14 +50,14 @@ export const CRM = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`http://localhost:3000/leads/business/my?userId=${user.id}`)
+    fetch(`${API}/leads/business/my?userId=${user.id}`)
       .then(r => r.json())
       .then(biz => { if (biz?.id) setBusinessId(biz.id); });
   }, [user?.id]);
 
   useEffect(() => {
     if (!businessId) return;
-    fetch(`http://localhost:3000/leads?businessId=${businessId}`)
+    fetch(`${API}/leads?businessId=${businessId}`)
       .then(r => r.json())
       .then(setLeads);
   }, [businessId]);
@@ -168,7 +169,7 @@ export const CRM = () => {
                       <Select
                         value={lead.status}
                         onValueChange={(v) => {
-                          fetch(`http://localhost:3000/leads/${lead.id}/status`, {
+                          fetch(`${API}/leads/${lead.id}/status`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ status: v }),

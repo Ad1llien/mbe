@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { API } from "@/lib/config";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -12,7 +13,7 @@ export default function VerifyEmailPage() {
   const handleVerify = async () => {
     setStatus('loading');
     try {
-      const res = await fetch('http://localhost:3000/auth/verify-email', {
+      const res = await fetch(`${API}/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),

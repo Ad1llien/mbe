@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+﻿import { useRef, useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Gift, Copy, Share2, Users, DollarSign, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
+import { API } from "@/lib/config";
 
-const API = "http://localhost:3000";
 const BONUS_PER_REFERRAL = 15;
 
 export const Referral = () => {

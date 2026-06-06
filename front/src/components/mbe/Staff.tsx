@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+﻿import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
@@ -11,8 +11,8 @@ import { Plus, KeyRound, Clock, Trash2, Copy, ShieldCheck, ChevronDown, ChevronU
 import { parseISO, format, isThisWeek, isThisMonth, isToday, startOfWeek, endOfWeek, differenceInMinutes } from "date-fns";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { toast } from "@/hooks/use-toast";
+import { API } from "@/lib/config";
 
-const API = "http://localhost:3000";
 const ROLES = ["owner", "manager", "cashier", "barista", "sales"];
 const STATUSES = [
   { id: "active",   label: "Active",   color: "stage-completed" },
@@ -30,6 +30,55 @@ const ACTIVITY_ICONS: Record<string, string> = {
   login: "🔑", shift_start: "▶️", shift_end: "⏹️", sale: "💰", verified: "✅",
 };
 
+const MODULES = [
+  { id: "pulse",     label: "Pulse",     emoji: "📊" },
+  { id: "pos",       label: "POS",       emoji: "🛒" },
+  { id: "crm",       label: "CRM",       emoji: "👥" },
+  { id: "finance",   label: "Finance",   emoji: "💰" },
+  { id: "reports",   label: "Reports",   emoji: "📈" },
+  { id: "staff",     label: "Staff",     emoji: "👤" },
+  { id: "inventory", label: "Inventory", emoji: "📦" },
+  { id: "tasks",     label: "Tasks",     emoji: "✅" },
+  { id: "calendar",  label: "Calendar",  emoji: "📅" },
+];
+
+function PermissionsGrid({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (id: string) =>
+    onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
+  const all = MODULES.every(m => value.includes(m.id));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">Module access</Label>
+        <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground"
+          onClick={() => onChange(all ? [] : MODULES.map(m => m.id))}>
+          {all ? "Deselect all" : "Select all"}
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {MODULES.map(m => {
+          const checked = value.includes(m.id);
+          return (
+            <button key={m.id} type="button"
+              onClick={() => toggle(m.id)}
+              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-xs font-medium transition-all text-left ${
+                checked
+                  ? "border-primary bg-primary/8 text-foreground"
+                  : "border-border bg-secondary/30 text-muted-foreground hover:border-primary/40"
+              }`}>
+              <span className="text-sm">{m.emoji}</span>
+              <span className="flex-1">{m.label}</span>
+              <span className={`h-3.5 w-3.5 rounded border flex-shrink-0 grid place-items-center transition-colors ${checked ? "bg-primary border-primary" : "border-border"}`}>
+                {checked && <svg viewBox="0 0 10 8" className="w-2 h-2 text-primary-foreground fill-current"><path d="M1 4l3 3 5-6"/></svg>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export const StaffPage = () => {
   const user = useAuthStore((s) => s.user);
   const { deals } = useStore();
@@ -41,9 +90,11 @@ export const StaffPage = () => {
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ name: "", role: "cashier", phone: "", email: "", kpiTarget: "0", pin: "" });
+  const [formPerms, setFormPerms] = useState<string[]>(["pulse", "pos"]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ name: "", role: "cashier", phone: "", kpiTarget: "0" });
+  const [editPerms, setEditPerms] = useState<string[]>([]);
 
   // Activity log
   const [activityStaff, setActivityStaff] = useState<any | null>(null);
@@ -108,6 +159,7 @@ export const StaffPage = () => {
         phone: form.phone,
         kpiTarget: Number(form.kpiTarget) || 0,
         pin: form.pin && /^\d{8}$/.test(form.pin) ? form.pin : undefined,
+        permissions: formPerms,
       }),
     });
     const res = await raw.json();
@@ -123,6 +175,7 @@ export const StaffPage = () => {
       setStaff(prev => [...prev, res]);
       setTempPassword(res.tempPassword);
       setForm({ name: "", role: "cashier", phone: "", email: "", kpiTarget: "0", pin: "" });
+      setFormPerms(["pulse", "pos"]);
       setFormErrors({});
       setOpen(false);
       toast({ title: "Staff created", description: res.tempPassword ? "Temp password: " + res.tempPassword : "Created" });
@@ -153,6 +206,7 @@ export const StaffPage = () => {
   const openEdit = (p: any) => {
     setEditTarget(p);
     setEditForm({ name: p.name, role: p.role, phone: p.phone || "", kpiTarget: String(p.kpiTarget || 0) });
+    setEditPerms(Array.isArray(p.permissions) ? p.permissions : []);
   };
 
   const handleEdit = async () => {
@@ -160,7 +214,7 @@ export const StaffPage = () => {
     const res = await fetch(`${API}/staff/${editTarget.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editForm.name, role: editForm.role, phone: editForm.phone, kpiTarget: Number(editForm.kpiTarget) }),
+      body: JSON.stringify({ name: editForm.name, role: editForm.role, phone: editForm.phone, kpiTarget: Number(editForm.kpiTarget), permissions: editPerms }),
     }).then(r => r.json());
     setStaff(prev => prev.map(s => s.id === res.id ? res : s));
     setEditTarget(null);
@@ -256,7 +310,7 @@ export const StaffPage = () => {
         action={
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setFormErrors({}); }}>
             <DialogTrigger asChild><Button className="h-9"><Plus className="h-4 w-4 mr-1" /> Add staff</Button></DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>New staff member</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
@@ -288,6 +342,9 @@ export const StaffPage = () => {
                   <Label>8-digit PIN <span className="text-muted-foreground text-[11px]">(auto if empty)</span></Label>
                   <Input value={form.pin} maxLength={8} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })} placeholder="auto" />
                 </div>
+                <div className="border-t border-border pt-3">
+                  <PermissionsGrid value={formPerms} onChange={setFormPerms} />
+                </div>
                 <p className="text-[11px] text-muted-foreground">📧 An invite email with login instructions will be sent automatically.</p>
               </div>
               <DialogFooter><Button onClick={handleCreate}>Create & Send Invite</Button></DialogFooter>
@@ -298,7 +355,7 @@ export const StaffPage = () => {
 
       {/* Edit dialog */}
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit staff member</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>Full name</Label><Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
@@ -313,6 +370,9 @@ export const StaffPage = () => {
               <div><Label>KPI target / month</Label><Input type="number" value={editForm.kpiTarget} onChange={(e) => setEditForm({ ...editForm, kpiTarget: e.target.value })} /></div>
             </div>
             <div><Label>Phone</Label><Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} /></div>
+            <div className="border-t border-border pt-3">
+              <PermissionsGrid value={editPerms} onChange={setEditPerms} />
+            </div>
           </div>
           <DialogFooter><Button onClick={handleEdit}>Save changes</Button></DialogFooter>
         </DialogContent>
@@ -565,6 +625,21 @@ export const StaffPage = () => {
                           </Select>
                         </div>
                       </div>
+
+                      {/* Permissions */}
+                      {Array.isArray(p.permissions) && p.permissions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 px-0.5">
+                          {p.permissions.map((id: string) => {
+                            const m = MODULES.find(x => x.id === id);
+                            if (!m) return null;
+                            return (
+                              <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary border border-border text-foreground">
+                                {m.emoji} {m.label}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
 
                       {/* Time tracking strip */}
                       <div className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50 hairline">

@@ -1,9 +1,10 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ArrowLeft, Loader2, MessageCircle, Mail, Lock, Building2, Phone } from "lucide-react";
 import { useOnboardingStore, type DeliveryMethod } from "@/stores/onboardingStore";
+import { API } from "@/lib/config";
 
 const schema = z.object({
   companyName: z.string().trim().min(2, "Введите название (мин. 2 символа)").max(100),
@@ -33,7 +34,7 @@ export function Step2() {
   const onSubmit = async (data: FormValues) => {
     setUser(data);
     
-    const res = await fetch('http://localhost:3000/auth/register', {
+    const res = await fetch(`${API}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: data.email, password: data.password }),
@@ -55,7 +56,7 @@ export function Step2() {
   const verify = async () => {
     setChecking(true);
     
-    const res = await fetch(`http://localhost:3000/auth/check-verified?email=${user.email}`);
+    const res = await fetch(`${API}/auth/check-verified?email=${user.email}`);
     const data = await res.json();
     
     setChecking(false);

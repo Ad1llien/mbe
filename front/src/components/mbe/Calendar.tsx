@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { type AppointmentClient } from "./store";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Plus, Trash2, X, Clock, Users as UsersIcon, Pencil, StickyNote, Phone, Mail, User } from "lucide-react";
 import { addDays, format, isSameDay, parseISO, startOfWeek } from "date-fns";
+import { API } from "@/lib/config";
 
-const API = "http://localhost:3000";
 const SLOT_MIN = 15;
 const ROW_H = 14;
 const HOURS = Array.from({ length: 13 }, (_, i) => 8 + i);

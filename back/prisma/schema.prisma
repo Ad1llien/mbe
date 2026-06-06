@@ -93,6 +93,7 @@ model StaffMember {
   status      String          @default("active")
   verified    Boolean         @default(false)
   verifyToken String?         @unique
+  permissions Json            @default("[]")
   hiredAt     DateTime        @default(now())
   createdAt   DateTime        @default(now())
   activities  StaffActivity[]

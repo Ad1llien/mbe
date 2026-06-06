@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Clock, Trash2, Check, PenLine } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow, differenceInMinutes } from "date-fns";
 import { Whiteboard } from "./Whiteboard";
-
-const API = "http://localhost:3000";
+import { API } from "@/lib/config";
 
 export const TaskList = () => {
   const user = useAuthStore((s) => s.user);

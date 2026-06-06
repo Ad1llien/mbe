@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+﻿import { useMemo, useState, useEffect, useRef } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import {
   parseISO, isToday, isThisWeek, isThisMonth, isThisYear,
   subDays, subYears, isAfter, format, startOfDay,
 } from "date-fns";
+import { API } from "@/lib/config";
 
 type Period = "day" | "week" | "month" | "halfyear" | "year";
 const LABELS: Record<Period, string> = {
@@ -395,7 +396,7 @@ export const Reports = () => {
   const [exportOpen, setExportOpen]   = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:3000/pos/receipts")
+    fetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); });
   }, []);

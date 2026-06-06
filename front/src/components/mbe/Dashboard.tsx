@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader, Stat } from "./ui";
@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Sector } from "recharts";
 import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck } from "lucide-react";
 import { format, parseISO, isToday, subDays, startOfDay } from "date-fns";
+import { API } from "@/lib/config";
 
-const API = "http://localhost:3000";
+
 
 const ROLE_COLOR: Record<string, string> = {
   cashier:   "hsl(var(--stage-completed))",

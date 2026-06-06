@@ -1,9 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
+﻿import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Mail, Lock, Loader2, ArrowRight, Building2, Phone, MessageCircle, User as UserIcon, Gift } from "lucide-react";
+import { API } from "@/lib/config";
 
 const schema = z.object({
   fullName: z.string().trim().min(2, "Введите ваше имя"),
@@ -48,14 +49,14 @@ export default function RegisterPage() {
 
   const checkRefCode = async (code: string) => {
     if (!code) { setRefValid(null); return; }
-    const res = await fetch(`http://localhost:3000/auth/check-ref?code=${code}`).then(r => r.json());
+    const res = await fetch(`${API}/auth/check-ref?code=${code}`).then(r => r.json());
     setRefValid(res.valid);
   };
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
     try {
-      await fetch("http://localhost:3000/auth/register", {
+      await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email, password: data.password, refCode: refCode || undefined }),

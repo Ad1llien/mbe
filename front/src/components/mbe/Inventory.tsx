@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+﻿import { useRef, useState, useEffect, useMemo } from "react";
 import { useStore, InventoryItem } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Minus, AlertTriangle, Package, Warehouse, Store, Paperclip, Bell, BellOff, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API } from "@/lib/config";
 
 type Tab = "stock" | "sale";
 
@@ -19,10 +20,10 @@ export const Inventory = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/pos/products')
+    fetch(`${API}/pos/products`)
       .then(r => r.json())
       .then(setApiProducts);
-    fetch('http://localhost:3000/pos/receipts')
+    fetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setReceipts(data); });
   }, []);
@@ -189,7 +190,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
     if (!form.name) return;
 
     if (isProduct) {
-      const newProduct = await fetch('http://localhost:3000/pos/products', {
+      const newProduct = await fetch(`${API}/pos/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -212,7 +213,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
 
     if (sellInPos) {
       // Create a POS product linked to this warehouse item
-      const posProduct = await fetch('http://localhost:3000/pos/products', {
+      const posProduct = await fetch(`${API}/pos/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

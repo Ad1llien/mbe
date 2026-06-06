@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { Plus, Receipt, ArrowUpRight, ArrowDownRight, CalendarIcon } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { API } from "@/lib/config";
 
 const ranges = { "7d": 7, "30d": 30, "90d": 90 } as const;
 type RangeKey = keyof typeof ranges;
@@ -29,7 +30,7 @@ export const Finance = () => {
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/pos/receipts')
+    fetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(setApiReceipts);
   }, []);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Panel, SectionHeader } from "./ui";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Copy, RefreshCw } from "lucide-react";
 import { useAuthStore } from '@/store/authStore';
 import { useNavigate } from 'react-router-dom';
+import { API } from "@/lib/config";
 
 export const Profile = () => {
   const user = useAuthStore((s) => s.user);
@@ -45,14 +46,14 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (user?.id) {
-      fetch(`http://localhost:3000/leads/business/my?userId=${user.id}`)
+      fetch(`${API}/leads/business/my?userId=${user.id}`)
         .then(r => r.json())
         .then(data => { if (data?.id) setBusiness(data); });
     }
   }, [user?.id, refreshKey]);
 
   const webhookUrl = business
-    ? `http://localhost:3000/leads/webhook?businessId=${business.id}&secret=${business.webhookSecret}`
+    ? `${API}/leads/webhook?businessId=${business.id}&secret=${business.webhookSecret}`
     : null;
 
   const handleCopy = () => {
@@ -64,12 +65,12 @@ export const SettingsPage = () => {
 
   const handleRegenerate = async () => {
     await fetch(
-      `http://localhost:3000/leads/business/regenerate-secret?userId=${user?.id}`,
+      `${API}/leads/business/regenerate-secret?userId=${user?.id}`,
       { method: 'POST' }
     );
     setBusiness(null);
     const biz = await fetch(
-      `http://localhost:3000/leads/business/my?userId=${user?.id}`
+      `${API}/leads/business/my?userId=${user?.id}`
     ).then(r => r.json());
     setBusiness(biz);
     setConfirmOpen(false);

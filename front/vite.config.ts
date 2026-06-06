@@ -14,6 +14,16 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  build: {
+    rollupOptions: {
+      output: {
+        // Ensure filenames always include content hash → forces browser to load new files after deploy
+        entryFileNames:  "assets/[name]-[hash].js",
+        chunkFileNames:  "assets/[name]-[hash].js",
+        assetFileNames:  "assets/[name]-[hash][extname]",
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

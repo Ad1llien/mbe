@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 const STAFF_SELECT = {
   id: true, ownerId: true, name: true, email: true,
   role: true, phone: true, pin: true, kpiTarget: true,
-  status: true, verified: true, hiredAt: true,
+  status: true, verified: true, hiredAt: true, permissions: true,
 };
 
 @Injectable()
@@ -33,6 +33,7 @@ export class StaffService {
     kpiTarget?: number;
     pin?: string;
     password?: string;
+    permissions?: string[];
   }) {
     // Check for duplicate email before hitting the DB unique constraint
     const existing = await this.prisma.staffMember.findUnique({ where: { email: data.email } });
@@ -56,6 +57,7 @@ export class StaffService {
         kpiTarget: data.kpiTarget ?? 0,
         pin,
         verifyToken,
+        permissions: data.permissions ?? [],
       },
       select: STAFF_SELECT,
     });
@@ -85,15 +87,16 @@ export class StaffService {
     return { success: true };
   }
 
-  async updateStaff(id: string, data: { name?: string; role?: string; phone?: string; kpiTarget?: number; status?: string }) {
+  async updateStaff(id: string, data: { name?: string; role?: string; phone?: string; kpiTarget?: number; status?: string; permissions?: string[] }) {
     return this.prisma.staffMember.update({
       where: { id },
       data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.role !== undefined && { role: data.role }),
-        ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.kpiTarget !== undefined && { kpiTarget: data.kpiTarget }),
-        ...(data.status !== undefined && { status: data.status }),
+        ...(data.name        !== undefined && { name: data.name }),
+        ...(data.role        !== undefined && { role: data.role }),
+        ...(data.phone       !== undefined && { phone: data.phone }),
+        ...(data.kpiTarget   !== undefined && { kpiTarget: data.kpiTarget }),
+        ...(data.status      !== undefined && { status: data.status }),
+        ...(data.permissions !== undefined && { permissions: data.permissions }),
       },
       select: STAFF_SELECT,
     });
