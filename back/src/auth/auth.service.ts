@@ -43,7 +43,8 @@ import {
         validRef,
       );
 
-      const verificationLink = `http://localhost:8080/verify-email?token=${verificationToken}`;
+      const frontendUrl = process.env.FRONTEND_URL?.split(',')[0].trim() ?? 'http://localhost:8080';
+      const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
       await this.emailService.sendVerificationEmail(email, verificationLink);
 
       return {
