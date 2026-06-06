@@ -1,21 +1,45 @@
 import { Injectable } from '@nestjs/common';
-import { BrevoClient } from '@getbrevo/brevo';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private client: BrevoClient;
+  private resend: Resend;
 
   constructor() {
-    this.client = new BrevoClient({ apiKey: process.env.BREVO_API_KEY! });
+    this.resend = new Resend(process.env.RESEND_API_KEY);
+  }
+
+  async sendVerificationEmail(email: string, verificationLink: string) {
+    try {
+      const { error } = await this.resend.emails.send({
+        from: 'MBE <onboarding@resend.dev>',
+        to: [email],
+        subject: 'Подтвердите email — MBE',
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+            <h2>Подтвердите ваш email</h2>
+            <p>Нажмите кнопку ниже чтобы подтвердить регистрацию в MBE.</p>
+            <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 8px;">
+              Подтвердить email
+            </a>
+            <p style="color: #999; font-size: 12px; margin-top: 24px;">Если вы не регистрировались — просто проигнорируйте это письмо.</p>
+          </div>
+        `,
+      });
+      if (error) console.error('Resend error:', error);
+      else console.log('Verification email sent to', email);
+    } catch (e) {
+      console.error('Resend exception:', e);
+    }
   }
 
   async sendStaffInviteEmail(email: string, name: string, verifyLink: string, tempPassword: string) {
     try {
-      await this.client.transactionalEmails.sendTransacEmail({
-        sender: { name: 'MBE', email: 'akadilzh2004kz@gmail.com' },
-        to: [{ email }],
+      const { error } = await this.resend.emails.send({
+        from: 'MBE <onboarding@resend.dev>',
+        to: [email],
         subject: 'Вас добавили в команду — MBE',
-        htmlContent: `
+        html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f9f9f9; border-radius: 12px;">
             <h2 style="margin-bottom: 8px;">Привет, ${name}! 👋</h2>
             <p style="color: #555;">Вас добавили в команду через платформу <b>MBE</b>.</p>
@@ -29,35 +53,10 @@ export class EmailService {
           </div>
         `,
       });
-      console.log('Staff invite sent to', email);
+      if (error) console.error('Resend error:', error);
+      else console.log('Staff invite sent to', email);
     } catch (e) {
-      console.error('Brevo error:', e);
-    }
-  }
-
-  async sendVerificationEmail(email: string, verificationLink: string) {
-    try {
-      await this.client.transactionalEmails.sendTransacEmail({
-        sender: {
-          name: 'MBE',
-          email: 'akadilzh2004kz@gmail.com',
-        },
-        to: [{ email }],
-        subject: 'Подтвердите email — MBE',
-        htmlContent: `
-          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-            <h2>Подтвердите ваш email</h2>
-            <p>Нажмите кнопку ниже чтобы подтвердить регистрацию в MBE.</p>
-            <a href="${verificationLink}" style="display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 8px;">
-              Подтвердить email
-            </a>
-            <p style="color: #999; font-size: 12px; margin-top: 24px;">Если вы не регистрировались — просто проигнорируйте это письмо.</p>
-          </div>
-        `,
-      });
-      console.log('Email sent to', email);
-    } catch (e) {
-      console.error('Brevo error:', e);
+      console.error('Resend exception:', e);
     }
   }
 }
