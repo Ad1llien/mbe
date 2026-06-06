@@ -1,22 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
-  private resend: Resend;
+  private transporter: nodemailer.Transporter;
 
   constructor() {
-    const key = process.env.RESEND_API_KEY;
-    console.log('[EmailService] RESEND_API_KEY present:', !!key);
-    this.resend = new Resend(key);
+    this.transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
   }
 
   async sendVerificationEmail(email: string, verificationLink: string) {
-    console.log('[EmailService] sendVerificationEmail called for', email);
     try {
-      const { error } = await this.resend.emails.send({
-        from: 'MBE <onboarding@resend.dev>',
-        to: [email],
+      await this.transporter.sendMail({
+        from: `"MBE" <${process.env.GMAIL_USER}>`,
+        to: email,
         subject: 'Подтвердите email — MBE',
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
@@ -29,18 +32,17 @@ export class EmailService {
           </div>
         `,
       });
-      if (error) console.error('Resend error:', error);
-      else console.log('Verification email sent to', email);
+      console.log('Verification email sent to', email);
     } catch (e) {
-      console.error('Resend exception:', e);
+      console.error('Gmail SMTP error:', e);
     }
   }
 
   async sendStaffInviteEmail(email: string, name: string, verifyLink: string, tempPassword: string) {
     try {
-      const { error } = await this.resend.emails.send({
-        from: 'MBE <onboarding@resend.dev>',
-        to: [email],
+      await this.transporter.sendMail({
+        from: `"MBE" <${process.env.GMAIL_USER}>`,
+        to: email,
         subject: 'Вас добавили в команду — MBE',
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #f9f9f9; border-radius: 12px;">
@@ -56,10 +58,9 @@ export class EmailService {
           </div>
         `,
       });
-      if (error) console.error('Resend error:', error);
-      else console.log('Staff invite sent to', email);
+      console.log('Staff invite sent to', email);
     } catch (e) {
-      console.error('Resend exception:', e);
+      console.error('Gmail SMTP error:', e);
     }
   }
 }
