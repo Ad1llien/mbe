@@ -253,7 +253,7 @@ export const useStore = create<State>((set, get) => ({
     plan: "Pro",
     priceMonthly: 49,
     status: "active",
-    startedAt: daysAgo(120),
+    startedAt: new Date(today.getTime() - 120 * 86400000).toISOString(),
     renewsAt: new Date(today.getTime() + 86400000 * 14).toISOString(),
     cardBrand: "Visa",
     cardLast4: "4242",
