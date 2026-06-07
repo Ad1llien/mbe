@@ -4,6 +4,7 @@ import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,11 +29,13 @@ export const Finance = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<RangeKey | "custom">("30d");
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API}/pos/receipts`)
       .then(r => r.json())
-      .then(setApiReceipts);
+      .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
+      .finally(() => setLoading(false));
   }, []);
 
   const days = activeTab !== "custom" ? ranges[activeTab as RangeKey] : 30;
@@ -162,29 +165,20 @@ export const Finance = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Stat
-          label={`Total income (${activeTab === "custom" ? "custom" : activeTab})`}
-          value={`$${totalIncomeWithPos.toLocaleString()}`}
-          delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`}
-          tone={totalIncomeWithPos > 0 ? "pos" : "neutral"}
-        />
-        <Stat
-          label="Expenses"
-          value={`$${totalExpense.toLocaleString()}`}
-          delta={`${transactions.filter((t) => t.type === "expense").length} entries`}
-          tone={totalExpense > 0 ? "neg" : "neutral"}
-        />
-        <Stat
-          label="Net (income − expenses)"
-          value={`${totalIncomeWithPos - totalExpense >= 0 ? "+" : "−"}$${Math.abs(totalIncomeWithPos - totalExpense).toLocaleString()}`}
-          delta={totalIncomeWithPos - totalExpense > 0 ? "profit" : totalIncomeWithPos - totalExpense < 0 ? "loss" : "break-even"}
-          tone={totalIncomeWithPos - totalExpense > 0 ? "pos" : totalIncomeWithPos - totalExpense < 0 ? "neg" : "neutral"}
-        />
-        <Stat
-          label="Completed deals"
-          value={`${completedDeals.length}`}
-          delta="Synced from CRM"
-        />
+        {loading ? [0,1,2,3].map(i => (
+          <div key={i} className="rounded-2xl bg-secondary/50 p-5 space-y-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+        )) : (
+          <>
+            <Stat label={`Total income (${activeTab === "custom" ? "custom" : activeTab})`} value={`$${totalIncomeWithPos.toLocaleString()}`} delta={`${diffPct >= 0 ? "+" : ""}${diffPct}% vs ${compareMode === "prev" ? "last month" : "custom"}`} tone={totalIncomeWithPos > 0 ? "pos" : "neutral"} />
+            <Stat label="Expenses" value={`$${totalExpense.toLocaleString()}`} delta={`${transactions.filter(t => t.type === "expense").length} entries`} tone={totalExpense > 0 ? "neg" : "neutral"} />
+            <Stat label="Net (income − expenses)" value={`${totalIncomeWithPos - totalExpense >= 0 ? "+" : "−"}$${Math.abs(totalIncomeWithPos - totalExpense).toLocaleString()}`} delta={totalIncomeWithPos - totalExpense > 0 ? "profit" : totalIncomeWithPos - totalExpense < 0 ? "loss" : "break-even"} tone={totalIncomeWithPos - totalExpense > 0 ? "pos" : totalIncomeWithPos - totalExpense < 0 ? "neg" : "neutral"} />
+            <Stat label="Completed deals" value={`${completedDeals.length}`} delta="Synced from CRM" />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -224,7 +218,9 @@ export const Finance = () => {
             </div>
           </div>
           <div className="h-[280px]">
-            <ResponsiveContainer>
+            {loading ? (
+              <Skeleton className="h-full w-full rounded-xl" />
+            ) : <ResponsiveContainer>
               <AreaChart data={series} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
@@ -246,14 +242,22 @@ export const Finance = () => {
                 />
                 <Area type="monotone" dataKey="income" stroke="hsl(var(--foreground))" strokeWidth={2} fill="url(#g)" />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer>}
           </div>
         </Panel>
 
         <Panel>
           <div className="text-sm font-medium mb-3">Recent transactions</div>
           <div className="space-y-2 max-h-[300px] overflow-auto pr-1">
-            {transactions.slice(0, 10).map((t) => (
+            {loading ? [0,1,2,3].map(i => (
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/40">
+                <Skeleton className="h-8 w-8 rounded-lg shrink-0" />
+                <div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-28" /><Skeleton className="h-2.5 w-20" /></div>
+                <Skeleton className="h-3 w-12" />
+              </div>
+            )) : transactions.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-6 text-center">No transactions yet</div>
+            ) : transactions.slice(0, 10).map((t) => (
               <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-secondary/50">
                 <div className={`h-8 w-8 rounded-lg grid place-items-center ${t.type === "income" ? "bg-foreground text-background" : "bg-muted text-foreground"}`}>
                   {t.type === "income" ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
@@ -272,6 +276,7 @@ export const Finance = () => {
           </div>
         </Panel>
       </div>
+
 
       <Panel className="mt-4">
         <div className="flex items-center justify-between mb-3">
