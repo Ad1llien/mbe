@@ -4,6 +4,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Disable all HTTP caching so browsers never serve stale 304 responses
+  app.use((_req: any, res: any, next: any) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.enableCors({
     origin: process.env.FRONTEND_URL
       ? process.env.FRONTEND_URL.split(',').map((u) => u.trim())

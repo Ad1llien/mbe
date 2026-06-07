@@ -49,12 +49,17 @@ export const CRM = () => {
     );
   }, [deals, query]);
 
-  // Load business & leads
+  // Load business & leads — POST ensure не кэшируется браузером (в отличие от GET)
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API}/leads/business/my?userId=${user.id}`)
+    fetch(`${API}/leads/business/ensure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, name: user.email }),
+    })
       .then(r => r.json())
-      .then(biz => { if (biz?.id) setBusinessId(biz.id); });
+      .then(biz => { if (biz?.id) setBusinessId(biz.id); })
+      .catch(e => console.error('[CRM] failed to load business:', e));
   }, [user?.id]);
 
   useEffect(() => {
