@@ -12,11 +12,12 @@ export class EmailService {
 
     this.logger.log(`Gmail user: ${user} | pass length: ${pass?.length ?? 0}`);
 
-    // Use explicit host/port instead of service:'gmail' — more reliable on cloud hosts
+    // Port 587 + STARTTLS — works everywhere including Windows and Render
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true, // SSL
+      port: 587,
+      secure: false,
+      requireTLS: true,
       auth: { user, pass },
     });
 
