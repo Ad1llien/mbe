@@ -220,6 +220,9 @@ type State = {
 
   // audit
   log: (e: Omit<AuditEvent, "id" | "at">) => void;
+
+  // session
+  reset: () => void;
 };
 
 const today = new Date();
@@ -381,4 +384,18 @@ export const useStore = create<State>((set, get) => ({
   updateSubscription: (patch) => set((s) => ({ subscription: { ...s.subscription, ...patch } })),
 
   log: (e) => set((s) => ({ audit: [{ ...e, id: uid(), at: new Date().toISOString() }, ...s.audit].slice(0, 100) })),
+
+  reset: () => set({
+    deals: [],
+    transactions: [],
+    inventory: [],
+    tasks: [],
+    customers: [],
+    heldOrders: [],
+    receipts: [],
+    audit: [],
+    appointments: [],
+    staff: [],
+    shifts: [],
+  }),
 }));
