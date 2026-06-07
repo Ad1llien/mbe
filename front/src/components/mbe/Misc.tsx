@@ -43,17 +43,36 @@ export const SettingsPage = () => {
   const [copied, setCopied] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+  const [webhookError, setWebhookError] = useState<string | null>(null);
+
+  const loadBusiness = async () => {
+    if (!user?.id) return;
+    setWebhookLoading(true);
+    setWebhookError(null);
+    try {
+      const r = await fetch(`${API}/leads/business/ensure`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, name: user.email }),
+      });
+      if (!r.ok) throw new Error(`Server error ${r.status}`);
+      const data = await r.json();
+      if (data?.id) {
+        setBusiness(data);
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (e: any) {
+      console.error('[Webhook] Failed to load business:', e.message);
+      setWebhookError(e.message ?? 'Unknown error');
+    } finally {
+      setWebhookLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!user?.id) return;
-    // upsert — creates if missing, returns existing if already there
-    fetch(`${API}/leads/business/ensure`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: user.id, name: user.email }),
-    })
-      .then(r => r.json())
-      .then(data => { if (data?.id) setBusiness(data); });
+    loadBusiness();
   }, [user?.id, refreshKey]);
 
   const webhookUrl = business
@@ -68,16 +87,18 @@ export const SettingsPage = () => {
   };
 
   const handleRegenerate = async () => {
-    await fetch(
-      `${API}/leads/business/regenerate-secret?userId=${user?.id}`,
-      { method: 'POST' }
-    );
-    setBusiness(null);
-    const biz = await fetch(
-      `${API}/leads/business/my?userId=${user?.id}`
-    ).then(r => r.json());
-    setBusiness(biz);
     setConfirmOpen(false);
+    setBusiness(null);
+    try {
+      await fetch(
+        `${API}/leads/business/regenerate-secret?userId=${user?.id}`,
+        { method: 'POST' }
+      );
+    } catch (e) {
+      console.error('[Webhook] regenerate failed:', e);
+    }
+    // re-run ensure to pick up the new secret
+    setRefreshKey(k => k + 1);
   };
 
   const handleLogout = () => {
@@ -107,22 +128,39 @@ export const SettingsPage = () => {
         <button onClick={handleLogout} className="...">Выйти</button>
       </Panel>
 
-      {webhookUrl && (
-        <Panel className="mt-4">
+      <Panel className="mt-4">
           <div className="text-sm font-medium mb-1">Webhook URL для заявок</div>
           <div className="text-xs text-muted-foreground mb-3">
             Вставь эту ссылку в Facebook / Instagram Ads → Lead Forms → Webhook
           </div>
-          <div className="flex items-center gap-2">
-            <Input value={webhookUrl} readOnly className="text-xs font-mono" />
-            <Button size="icon" variant="secondary" onClick={handleCopy} title={copied ? "Скопировано!" : "Скопировать"}>
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button variant="destructive" size="icon" onClick={() => setConfirmOpen(true)} title="Пересоздать ссылку">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-          {copied && <div className="text-xs text-green-500 mt-1">Скопировано!</div>}
+
+          {webhookLoading && (
+            <div className="text-xs text-muted-foreground animate-pulse">Загрузка webhook URL…</div>
+          )}
+
+          {webhookError && !webhookLoading && (
+            <div className="flex items-center gap-2">
+              <div className="text-xs text-destructive">Ошибка: {webhookError}</div>
+              <Button size="sm" variant="secondary" onClick={loadBusiness}>
+                <RefreshCw className="h-3 w-3 mr-1" /> Повторить
+              </Button>
+            </div>
+          )}
+
+          {webhookUrl && !webhookLoading && (
+            <>
+              <div className="flex items-center gap-2">
+                <Input value={webhookUrl} readOnly className="text-xs font-mono" />
+                <Button size="icon" variant="secondary" onClick={handleCopy} title={copied ? "Скопировано!" : "Скопировать"}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button variant="destructive" size="icon" onClick={() => setConfirmOpen(true)} title="Пересоздать ссылку">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              {copied && <div className="text-xs text-green-500 mt-1">Скопировано!</div>}
+            </>
+          )}
 
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogContent>
@@ -140,7 +178,6 @@ export const SettingsPage = () => {
             </DialogContent>
           </Dialog>
         </Panel>
-      )}
     </div>
   );
 };
