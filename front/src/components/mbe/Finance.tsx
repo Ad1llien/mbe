@@ -1,5 +1,4 @@
-﻿import { useMemo, useState, useEffect } from "react";
-import { useStore } from "./store";
+import { useMemo, useState, useEffect } from "react";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +20,9 @@ const ranges = { "7d": 7, "30d": 30, "90d": 90 } as const;
 type RangeKey = keyof typeof ranges;
 
 export const Finance = () => {
-  const { transactions, addTransaction, deals, stages } = useStore();
+  const user = useAuthStore(s => s.user);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
   const [compareMode, setCompareMode] = useState<"prev" | "custom">("prev");
   const [customFrom, setCustomFrom] = useState(format(subDays(new Date(), 60), "yyyy-MM-dd"));
   const [customTo, setCustomTo] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
@@ -32,25 +33,34 @@ export const Finance = () => {
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const user = useAuthStore(s => s.user);
-
   useEffect(() => {
     if (!user?.id) { setLoading(false); return; }
-    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`${API}/pos/receipts?ownerId=${user.id}`).then(r => r.json()),
+      fetch(`${API}/transactions?ownerId=${user.id}`).then(r => r.json()),
+      fetch(`${API}/deals?ownerId=${user.id}`).then(r => r.json()),
+    ]).then(([receipts, txns, dealList]) => {
+      if (Array.isArray(receipts)) setApiReceipts(receipts);
+      if (Array.isArray(txns)) setTransactions(txns);
+      if (Array.isArray(dealList)) setDeals(dealList);
+    }).finally(() => setLoading(false));
   }, [user?.id]);
+
+  const handleAddTransaction = async (data: { label: string; amount: number; type: string; date: string; receipt?: string; category?: string }) => {
+    if (!user?.id) return;
+    const txn = await fetch(`${API}/transactions?ownerId=${user.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then(r => r.json());
+    if (txn?.id) setTransactions(prev => [txn, ...prev]);
+  };
 
   const days = activeTab !== "custom" ? ranges[activeTab as RangeKey] : 30;
   const now = new Date();
 
-  const start = customRange?.from && activeTab === "custom"
-    ? customRange.from
-    : subDays(now, days);
-  const end = customRange?.to && activeTab === "custom"
-    ? customRange.to
-    : now;
+  const start = customRange?.from && activeTab === "custom" ? customRange.from : subDays(now, days);
+  const end = customRange?.to && activeTab === "custom" ? customRange.to : now;
 
   const posIncome = apiReceipts
     .filter(r => !r.voided && isWithinInterval(parseISO(r.createdAt), { start, end }))
@@ -76,7 +86,6 @@ export const Finance = () => {
   const totalIncome = transactions
     .filter((t) => t.type === "income" && isWithinInterval(parseISO(t.date), { start, end }))
     .reduce((s, t) => s + t.amount, 0);
-
   const totalIncomeWithPos = totalIncome + posIncome;
 
   const totalExpense = transactions
@@ -116,10 +125,7 @@ export const Finance = () => {
           <div className="flex items-center gap-2">
             <Tabs
               value={activeTab !== "custom" ? activeTab : ""}
-              onValueChange={(v) => {
-                setActiveTab(v as RangeKey);
-                setCustomRange(undefined);
-              }}
+              onValueChange={(v) => { setActiveTab(v as RangeKey); setCustomRange(undefined); }}
             >
               <TabsList className="bg-secondary">
                 <TabsTrigger value="7d">7D</TabsTrigger>
@@ -143,18 +149,13 @@ export const Finance = () => {
                     : "Custom"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent
-                className="w-auto p-0 bg-card border-border"
-                align="end"
-              >
+              <PopoverContent className="w-auto p-0 bg-card border-border" align="end">
                 <Calendar
                   mode="range"
                   selected={customRange}
                   onSelect={(range) => {
                     setCustomRange(range);
-                    if (range?.from && range?.to) {
-                      setCalendarOpen(false);
-                    }
+                    if (range?.from && range?.to) setCalendarOpen(false);
                   }}
                   numberOfMonths={2}
                   disabled={{ after: now }}
@@ -163,7 +164,7 @@ export const Finance = () => {
               </PopoverContent>
             </Popover>
 
-            <AddSaleDialog open={open} setOpen={setOpen} onAdd={addTransaction} />
+            <AddSaleDialog open={open} setOpen={setOpen} onAdd={handleAddTransaction} />
           </div>
         }
       />
@@ -194,9 +195,7 @@ export const Finance = () => {
             </div>
             <div className="flex items-center gap-2">
               <Select value={compareMode} onValueChange={(v) => setCompareMode(v as "prev" | "custom")}>
-                <SelectTrigger className="w-[170px] h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-[170px] h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="prev">Compare: previous month</SelectItem>
                   <SelectItem value="custom">Compare: custom range</SelectItem>
@@ -204,49 +203,31 @@ export const Finance = () => {
               </Select>
               {compareMode === "custom" && (
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => setCustomFrom(e.target.value)}
-                    className="h-8 w-[140px] text-xs"
-                  />
+                  <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
                   <span className="text-muted-foreground text-xs">→</span>
-                  <Input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => setCustomTo(e.target.value)}
-                    className="h-8 w-[140px] text-xs"
-                  />
+                  <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="h-8 w-[140px] text-xs" />
                 </div>
               )}
             </div>
           </div>
           <div className="h-[280px]">
-            {loading ? (
-              <Skeleton className="h-full w-full rounded-xl" />
-            ) : <ResponsiveContainer>
-              <AreaChart data={series} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--foreground))" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="hsl(var(--foreground))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: 12,
-                    color: "hsl(var(--foreground))",
-                  }}
-                  formatter={(v: number) => [`$${v.toLocaleString()}`, "Income"]}
-                />
-                <Area type="monotone" dataKey="income" stroke="hsl(var(--foreground))" strokeWidth={2} fill="url(#g)" />
-              </AreaChart>
-            </ResponsiveContainer>}
+            {loading ? <Skeleton className="h-full w-full rounded-xl" /> : (
+              <ResponsiveContainer>
+                <AreaChart data={series} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--foreground))" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="hsl(var(--foreground))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 12, color: "hsl(var(--foreground))" }} formatter={(v: number) => [`$${v.toLocaleString()}`, "Income"]} />
+                  <Area type="monotone" dataKey="income" stroke="hsl(var(--foreground))" strokeWidth={2} fill="url(#g)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Panel>
 
@@ -281,39 +262,28 @@ export const Finance = () => {
         </Panel>
       </div>
 
-
       <Panel className="mt-4">
         <div className="flex items-center justify-between mb-3">
           <div className="text-sm font-medium">Completed deals (from CRM)</div>
           <span className="text-xs text-muted-foreground">Auto-synced with payment receipts</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {completedDeals.map((d) => {
-            const stage = stages.find((s) => s.id === d.stageId);
-            return (
-              <div key={d.id} className="rounded-xl bg-secondary/50 p-4 hairline">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">{d.client}</div>
-                  <span
-                    className="text-[10px] px-2 py-0.5 rounded-full"
-                    style={{
-                      background: `hsl(var(--${stage?.color}) / 0.15)`,
-                      color: `hsl(var(--${stage?.color}))`,
-                    }}
-                  >
-                    {stage?.label}
-                  </span>
-                </div>
-                <div className="mt-1 font-medium">{d.title}</div>
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="text-lg font-semibold">${d.amount.toLocaleString()}</div>
-                  <div className="text-[10px] flex items-center gap-1 text-muted-foreground">
-                    <Receipt className="h-3 w-3" /> Receipt issued
-                  </div>
+          {completedDeals.length === 0 && <div className="text-xs text-muted-foreground py-4">No completed deals yet</div>}
+          {completedDeals.map((d) => (
+            <div key={d.id} className="rounded-xl bg-secondary/50 p-4 hairline">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">{d.client}</div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(var(--stage-completed)/0.15)] text-[hsl(var(--stage-completed))]">Completed</span>
+              </div>
+              <div className="mt-1 font-medium">{d.title}</div>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="text-lg font-semibold">${d.amount.toLocaleString()}</div>
+                <div className="text-[10px] flex items-center gap-1 text-muted-foreground">
+                  <Receipt className="h-3 w-3" /> Receipt issued
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </Panel>
     </div>
@@ -321,9 +291,7 @@ export const Finance = () => {
 };
 
 const AddSaleDialog = ({
-  open,
-  setOpen,
-  onAdd,
+  open, setOpen, onAdd,
 }: {
   open: boolean;
   setOpen: (b: boolean) => void;
@@ -336,24 +304,14 @@ const AddSaleDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="h-9">
-          <Plus className="h-4 w-4 mr-1" /> Add sale
-        </Button>
+        <Button className="h-9"><Plus className="h-4 w-4 mr-1" /> Add sale</Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Record a transaction</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Record a transaction</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label>Description</Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Client name — Service" />
-          </div>
+          <div><Label>Description</Label><Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Client name — Service" /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Amount</Label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
+            <div><Label>Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
             <div>
               <Label>Type</Label>
               <Select value={type} onValueChange={(v) => setType(v as "income" | "expense")}>
@@ -370,18 +328,12 @@ const AddSaleDialog = ({
           <Button onClick={() => {
             if (!label || !amount) return;
             onAdd({
-              label,
-              amount: Number(amount),
-              type,
+              label, amount: Number(amount), type,
               date: new Date().toISOString(),
               receipt: type === "income" ? `RCPT-${1000 + Math.floor(Math.random() * 9000)}` : undefined,
             });
-            setLabel("");
-            setAmount("");
-            setOpen(false);
-          }}>
-            Save
-          </Button>
+            setLabel(""); setAmount(""); setOpen(false);
+          }}>Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

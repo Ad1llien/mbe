@@ -1,32 +1,34 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 
 type Theme = "dark" | "light";
-const KEY = "mbe-theme";
 
-// MBE design baseline lives on :root (dark). The `.dark` legacy block uses
-// oklch values that break `hsl(var(--*))` consumers, so we never add it.
-// Light theme is opt-in via the `.light` class.
-const apply = (t: Theme) => {
-  const root = document.documentElement;
-  root.classList.remove("light", "dark");
-  if (t === "light") root.classList.add("light");
+export const applyTheme = (t: Theme) => {
+  document.documentElement.classList.remove("light", "dark");
+  if (t === "light") document.documentElement.classList.add("light");
 };
 
+export const getThemeKey = (userId?: string | null) =>
+  userId ? `mbe-theme-${userId}` : "mbe-theme";
+
 export const ThemeToggle = () => {
+  const user = useAuthStore(s => s.user);
   const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const saved = (localStorage.getItem(KEY) as Theme) || "dark";
+    const key = getThemeKey(user?.id);
+    const saved = (localStorage.getItem(key) as Theme) || "dark";
     setTheme(saved);
-    apply(saved);
-  }, []);
+    applyTheme(saved);
+  }, [user?.id]);
 
   const toggle = (t: Theme) => {
+    const key = getThemeKey(user?.id);
     setTheme(t);
-    apply(t);
-    localStorage.setItem(KEY, t);
+    applyTheme(t);
+    localStorage.setItem(key, t);
   };
 
   return (

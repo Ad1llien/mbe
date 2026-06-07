@@ -1,7 +1,8 @@
-﻿import { create } from 'zustand'
+import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { API } from "@/lib/config";
 import { useStore } from "@/components/mbe/store";
+import { applyTheme, getThemeKey } from "@/components/mbe/ThemeToggle";
 
 interface User {
   id: string
@@ -39,11 +40,18 @@ export const useAuthStore = create<AuthState>()(
 
         const { access_token, user } = await res.json();
         set({ user, token: access_token, isAuthenticated: true });
+
+        // Apply this user's saved theme preference
+        const savedTheme = localStorage.getItem(getThemeKey(user.id)) as "dark" | "light" | null;
+        applyTheme(savedTheme || "dark");
+
         return true;
       },
 
       logout: () => {
         useStore.getState().reset();
+        // Revert to dark theme on logout
+        applyTheme("dark");
         set({ user: null, token: null, isAuthenticated: false });
       },
     }),

@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader } from "./ui";
@@ -23,8 +23,9 @@ const colorOptions = [
 ];
 
 export const CRM = () => {
-  const { stages, deals, customers, addDeal, moveDeal, clearLostDeals } = useStore();
+  const { stages, customers, addCustomer } = useStore();
   const user = useAuthStore((s) => s.user);
+  const [deals, setDeals] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ client: "", title: "", amount: "", stageId: stages[0]?.id ?? "new" });
   const [calOpen, setCalOpen] = useState(false);
@@ -48,6 +49,7 @@ export const CRM = () => {
     );
   }, [deals, query]);
 
+  // Load business & leads
   useEffect(() => {
     if (!user?.id) return;
     fetch(`${API}/leads/business/my?userId=${user.id}`)
@@ -59,8 +61,16 @@ export const CRM = () => {
     if (!businessId) return;
     fetch(`${API}/leads?businessId=${businessId}`)
       .then(r => r.json())
-      .then(setLeads);
+      .then(data => { if (Array.isArray(data)) setLeads(data); });
   }, [businessId]);
+
+  // Load deals from backend
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`${API}/deals?ownerId=${user.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setDeals(data); });
+  }, [user?.id]);
 
   const openClient = (clientName: string) => {
     const cust = customers.find((c) => c.name?.toLowerCase() === clientName.toLowerCase());
@@ -69,6 +79,60 @@ export const CRM = () => {
   };
 
   const selectedCustomer = clientSel?.id ? customers.find((c) => c.id === clientSel.id) ?? null : null;
+
+  const handleAddDeal = async () => {
+    if (!form.client || !user?.id) return;
+    const deal = await fetch(`${API}/deals?ownerId=${user.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client: form.client,
+        title: form.title || "Untitled",
+        amount: Number(form.amount) || 0,
+        stageId: form.stageId,
+      }),
+    }).then(r => r.json());
+    if (deal?.id) setDeals(prev => [deal, ...prev]);
+    setForm({ client: "", title: "", amount: "", stageId: stages[0]?.id });
+    setOpen(false);
+  };
+
+  const handleMoveDeal = async (dealId: string, stageId: string) => {
+    if (!user?.id) return;
+    const deal = deals.find(d => d.id === dealId);
+    const updated = await fetch(`${API}/deals/${dealId}/stage?ownerId=${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stageId }),
+    }).then(r => r.json());
+    if (updated?.id) {
+      setDeals(prev => prev.map(d => d.id === dealId ? updated : d));
+      // Auto-create a transaction when deal is completed
+      if (stageId === "completed" && deal) {
+        await fetch(`${API}/transactions?ownerId=${user.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: `${deal.client} — ${deal.title}`,
+            amount: deal.amount,
+            type: "income",
+            date: new Date().toISOString(),
+            fromDealId: dealId,
+            receipt: `RCPT-${1000 + Math.floor(Math.random() * 9000)}`,
+          }),
+        });
+      }
+    }
+  };
+
+  const handleClearLost = async () => {
+    if (!user?.id) return;
+    const lostDeals = deals.filter(d => d.stageId === "lost");
+    await Promise.all(lostDeals.map(d =>
+      fetch(`${API}/deals/${d.id}?ownerId=${user.id}`, { method: "DELETE" })
+    ));
+    setDeals(prev => prev.filter(d => d.stageId !== "lost"));
+  };
 
   return (
     <div className="fade-in">
@@ -92,7 +156,7 @@ export const CRM = () => {
             <Button
               variant="ghost"
               className="h-9 text-muted-foreground hover:text-destructive"
-              onClick={clearLostDeals}
+              onClick={handleClearLost}
               disabled={lostCount === 0}
               title="Remove all deals in the Lost stage"
             >
@@ -118,12 +182,7 @@ export const CRM = () => {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button onClick={() => {
-                    if (!form.client) return;
-                    addDeal({ client: form.client, title: form.title || "Untitled", amount: Number(form.amount) || 0, stageId: form.stageId });
-                    setForm({ client: "", title: "", amount: "", stageId: stages[0]?.id });
-                    setOpen(false);
-                  }}>Create</Button>
+                  <Button onClick={handleAddDeal}>Create</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -132,7 +191,7 @@ export const CRM = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-        {stages.map((stage, stageIdx) => {
+        {stages.map((stage) => {
           const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
           const total = stageDeals.reduce((s, d) => s + d.amount, 0);
           const stageLeads = leads.filter((l) => l.status === stage.id);
@@ -206,7 +265,7 @@ export const CRM = () => {
                       <div className="text-[10px] text-muted-foreground">{format(parseISO(d.createdAt), "MMM d")}</div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
-                      <Select value={d.stageId} onValueChange={(v) => moveDeal(d.id, v)}>
+                      <Select value={d.stageId} onValueChange={(v) => handleMoveDeal(d.id, v)}>
                         <SelectTrigger className="h-7 mt-2 text-[11px]"><SelectValue /></SelectTrigger>
                         <SelectContent>{stages.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
                       </Select>

@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PosModule } from './pos/pos.module';
 import { LeadsModule } from './leads/leads.module';
-
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -11,6 +10,9 @@ import { EmailModule } from './email/email.module';
 import { TasksModule } from './tasks/tasks.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { StaffModule } from './staff/staff.module';
+import { DealsModule } from './deals/deals.module';
+import { TransactionsModule } from './transactions/transactions.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -22,7 +24,8 @@ import { StaffModule } from './staff/staff.module';
     TasksModule,
     AppointmentsModule,
     StaffModule,
-
+    DealsModule,
+    TransactionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

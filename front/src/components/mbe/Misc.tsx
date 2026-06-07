@@ -45,11 +45,22 @@ export const SettingsPage = () => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (user?.id) {
-      fetch(`${API}/leads/business/my?userId=${user.id}`)
-        .then(r => r.json())
-        .then(data => { if (data?.id) setBusiness(data); });
-    }
+    if (!user?.id) return;
+    fetch(`${API}/leads/business/my?userId=${user.id}`)
+      .then(r => r.json())
+      .then(async data => {
+        if (data?.id) {
+          setBusiness(data);
+        } else {
+          // Auto-create a business for this user if none exists
+          const biz = await fetch(`${API}/leads/business`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, name: user.email }),
+          }).then(r => r.json());
+          if (biz?.id) setBusiness(biz);
+        }
+      });
   }, [user?.id, refreshKey]);
 
   const webhookUrl = business

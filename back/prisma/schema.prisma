@@ -122,6 +122,29 @@ model StaffActivity {
   createdAt DateTime    @default(now())
 }
 
+model Deal {
+  id        String   @id @default(uuid())
+  ownerId   String
+  client    String
+  title     String
+  amount    Float    @default(0)
+  stageId   String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  ownerId    String
+  label      String
+  amount     Float
+  type       String
+  date       DateTime @default(now())
+  fromDealId String?
+  receipt    String?
+  category   String?
+  createdAt  DateTime @default(now())
+}
+
 model Appointment {
   id        String   @id @default(uuid())
   userId    String

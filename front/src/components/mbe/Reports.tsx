@@ -1,5 +1,4 @@
 ﻿import { useMemo, useState, useEffect, useRef } from "react";
-import { useStore } from "./store";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -391,10 +390,11 @@ function ExportModal({ open, onClose, apiReceipts, transactions, deals }: {
    Main Reports page
 ───────────────────────────────────────── */
 export const Reports = () => {
-  const { transactions, deals } = useStore();
   const user = useAuthStore(s => s.user);
   const [period, setPeriod]       = useState<Period>("week");
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [deals, setDeals] = useState<any[]>([]);
   const [exportOpen, setExportOpen]   = useState(false);
 
   useEffect(() => {
@@ -402,6 +402,12 @@ export const Reports = () => {
     fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); });
+    fetch(`${API}/transactions?ownerId=${user.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setTransactions(data); });
+    fetch(`${API}/deals?ownerId=${user.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setDeals(data); });
   }, [user?.id]);
 
   const inPeriod = (iso: string) => {

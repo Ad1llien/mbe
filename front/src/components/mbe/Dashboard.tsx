@@ -1,5 +1,4 @@
 ﻿import { useMemo, useState, useEffect } from "react";
-import { useStore } from "./store";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader, Stat } from "./ui";
 import { Button } from "@/components/ui/button";
@@ -12,7 +11,6 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck } from "lucide-react";
 import { format, parseISO, isToday, subDays, startOfDay } from "date-fns";
 import { API } from "@/lib/config";
-import { apiFetch } from "@/lib/apiFetch";
 
 const ROLE_COLOR: Record<string, string> = {
   cashier: "hsl(var(--stage-completed))",
@@ -54,11 +52,11 @@ const ReceiptRowSkeleton = () => (
 
 /* ── Main component ──────────────────────────────────────── */
 export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
-  const { transactions, inventory, addTransaction } = useStore();
   const user = useAuthStore(s => s.user);
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
   const [apiStaff, setApiStaff]     = useState<any[]>([]);
+  const [apiTransactions, setApiTransactions] = useState<any[]>([]);
   const [loadingReceipts, setLoadingReceipts] = useState(true);
   const [loadingStaff, setLoadingStaff]       = useState(true);
 
@@ -66,9 +64,9 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
 
   const todayReceipts  = apiReceipts.filter(r => !r.voided && isToday(parseISO(r.createdAt)));
   const revenueToday   = todayReceipts.reduce((s, r) => s + r.total, 0);
-  const expensesToday  = transactions.filter(t => t.type === "expense" && isToday(parseISO(t.date))).reduce((s, t) => s + t.amount, 0);
+  const expensesToday  = apiTransactions.filter(t => t.type === "expense" && isToday(parseISO(t.date))).reduce((s, t) => s + t.amount, 0);
   const profit         = revenueToday - expensesToday;
-  const critical       = inventory.filter(i => !i.isProduct && i.stock <= i.threshold);
+  const critical       = 0; // inventory stock tracked locally per-session
 
   const series = useMemo(() => {
     const arr: { day: string; revenue: number }[] = [];
@@ -88,11 +86,15 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
       .finally(() => setLoadingReceipts(false));
+    // Load transactions for expense tracking
+    fetch(`${API}/transactions?ownerId=${user.id}`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setApiTransactions(data); });
   }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) { setLoadingStaff(false); return; }
-    apiFetch(`${API}/staff?ownerId=${user.id}`)
+    fetch(`${API}/staff?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiStaff(data); })
       .finally(() => setLoadingStaff(false));
@@ -105,7 +107,7 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
         subtitle="Am I in the green today? Real-time business heartbeat."
         action={
           <div className="flex gap-2">
-            <QuickExpense onAdd={addTransaction} />
+            <QuickExpense ownerId={user?.id ?? ""} onAdd={(txn) => setApiTransactions(prev => [txn, ...prev])} />
             <Button className="h-9" onClick={() => onGoto?.("pos")}>
               <ShoppingBag className="h-4 w-4 mr-1" /> Open POS
             </Button>
@@ -122,7 +124,7 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
             <Stat label="Revenue today"    value={`$${revenueToday.toFixed(2)}`}  delta={`${todayReceipts.length} receipts`} tone={revenueToday > 0 ? "pos" : "neutral"} />
             <Stat label="Expenses today"   value={`$${expensesToday.toFixed(2)}`} delta="manual entries"                     tone={expensesToday > 0 ? "neg" : "neutral"} />
             <Stat label="Net profit (est.)" value={`${profit >= 0 ? "+" : "−"}$${Math.abs(profit).toFixed(2)}`} delta={profit > 0 ? "in the green" : profit < 0 ? "in the red" : "break-even"} tone={profit > 0 ? "pos" : profit < 0 ? "neg" : "neutral"} />
-            <Stat label="Critical stock"   value={`${critical.length}`}           delta={critical.length ? "action needed" : "all good"} tone={critical.length ? "neg" : "pos"} />
+            <Stat label="Critical stock"   value={`${critical}`}           delta="check Inventory" tone="neutral" />
           </>
         )}
       </div>
@@ -327,7 +329,7 @@ const RevenuePie = ({ apiReceipts, loading, activeIdx, setActiveIdx }: { apiRece
 };
 
 /* ── Quick expense dialog ────────────────────────────────── */
-const QuickExpense = ({ onAdd }: { onAdd: (t: any) => void }) => {
+const QuickExpense = ({ ownerId, onAdd }: { ownerId: string; onAdd: (t: any) => void }) => {
   const [open, setOpen]       = useState(false);
   const [label, setLabel]     = useState("");
   const [amount, setAmount]   = useState("");
@@ -355,9 +357,14 @@ const QuickExpense = ({ onAdd }: { onAdd: (t: any) => void }) => {
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={() => {
-            if (!label || !amount) return;
-            onAdd({ label, amount: Number(amount), type: "expense", date: new Date().toISOString(), category });
+          <Button onClick={async () => {
+            if (!label || !amount || !ownerId) return;
+            const txn = await fetch(`${API}/transactions?ownerId=${ownerId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ label, amount: Number(amount), type: "expense", date: new Date().toISOString(), category }),
+            }).then(r => r.json());
+            if (txn?.id) onAdd(txn);
             setLabel(""); setAmount(""); setOpen(false);
           }}><Plus className="h-4 w-4 mr-1" /> Save</Button>
         </DialogFooter>
