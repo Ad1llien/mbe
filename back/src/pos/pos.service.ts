@@ -29,8 +29,7 @@ export class PosService {
   }
 
   async createReceipt(ownerId: string, cashierId: string, lines: { productId: string; name: string; price: number; qty: number }[]) {
-    const count = await this.prisma.receipt.count({ where: { ownerId } });
-    const number = `Z-${1001 + count}`;
+    const number = `Z-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
     const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
 
     return this.prisma.receipt.create({

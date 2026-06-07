@@ -105,8 +105,17 @@ export const POS = () => {
         qty: l.qty,
       })) }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast({ title: "Checkout failed", description: err?.message ?? "Server error", variant: "destructive" });
+      return;
+    }
     const receipt = await res.json();
-    toast({ title: `Receipt ${receipt.number}`, description: `Total $${receipt.total.toFixed(2)}` });
+    if (!receipt?.id) {
+      toast({ title: "Checkout failed", description: "Unexpected server response", variant: "destructive" });
+      return;
+    }
+    toast({ title: `Receipt ${receipt.number}`, description: `Total $${(receipt.total ?? 0).toFixed(2)}` });
     setCart([]);
     setCustomer(undefined);
     setReceipts(prev => [receipt, ...prev]);
