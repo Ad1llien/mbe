@@ -6,12 +6,12 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    const user = process.env.GMAIL_USER;
+    const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, ''); // strip spaces just in case
+    console.log('[EmailService] Gmail user:', user, '| pass set:', !!pass);
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
+      auth: { user, pass },
     });
   }
 
