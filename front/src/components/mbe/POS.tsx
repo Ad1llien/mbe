@@ -52,11 +52,11 @@ export const POS = () => {
   useEffect(() => {
     apiFetch(`${API}/pos/products`)
       .then(r => r.json())
-      .then(setProducts);
-  
+      .then(data => { if (Array.isArray(data)) setProducts(data); });
+
     apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
-      .then(setReceipts);
+      .then(data => { if (Array.isArray(data)) setReceipts(data); });
   }, []);
 
  

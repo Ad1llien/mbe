@@ -23,7 +23,7 @@ export const Inventory = () => {
   useEffect(() => {
     apiFetch(`${API}/pos/products`)
       .then(r => r.json())
-      .then(setApiProducts);
+      .then(data => { if (Array.isArray(data)) setApiProducts(data); });
     apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setReceipts(data); });
