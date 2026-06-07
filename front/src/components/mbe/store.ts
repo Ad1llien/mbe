@@ -223,18 +223,6 @@ type State = {
 };
 
 const today = new Date();
-const daysAgo = (n: number) => new Date(today.getTime() - n * 86400000).toISOString();
-const minsAgo = (n: number) => new Date(today.getTime() - n * 60000).toISOString();
-
-// Pre-seeded inventory: ingredients + products with recipes
-const milkId = uid();
-const beanId = uid();
-const cupId = uid();
-const syrupId = uid();
-const cappId = uid();
-const espId = uid();
-const latteId = uid();
-const croissantId = uid();
 
 export const useStore = create<State>((set, get) => ({
   stages: [
@@ -244,59 +232,23 @@ export const useStore = create<State>((set, get) => ({
     { id: "completed", label: "Deal Completed", color: "stage-completed" },
     { id: "lost", label: "Deal Lost", color: "stage-lost" },
   ],
-  deals: [
-    { id: uid(), client: "Acme Corp", title: "Annual retainer", amount: 12500, stageId: "progress", createdAt: daysAgo(3) },
-    { id: uid(), client: "Nova Studio", title: "Brand identity", amount: 4800, stageId: "new", createdAt: daysAgo(1) },
-    { id: uid(), client: "Helix Labs", title: "Platform license", amount: 22000, stageId: "completed", createdAt: daysAgo(8) },
-  ],
-  transactions: [
-    { id: uid(), label: "Helix Labs — Platform license", amount: 22000, type: "income", date: daysAgo(8), receipt: "RCPT-1042" },
-    { id: uid(), label: "Server hosting", amount: 480, type: "expense", date: daysAgo(2), category: "Infrastructure" },
-    { id: uid(), label: "Rent", amount: 1800, type: "expense", date: daysAgo(1), category: "Rent" },
-  ],
+  deals: [],
+  transactions: [],
   inventory: [
     
   ],
-  tasks: [
-    { id: uid(), title: "Order milk delivery", due: new Date(today.getTime() + 3600_000 * 5).toISOString(), done: false },
-    { id: uid(), title: "Review yesterday's Z-report", due: new Date(today.getTime() + 86400000).toISOString(), done: false },
-  ],
-  customers: [
-    { id: uid(), phone: "+1 555 0142", name: "Anna Petrova", email: "anna.p@gmail.com", source: "Instagram", socialHandle: "@anna.coffee", city: "Almaty", note: "Allergic to peanuts • likes window seat", createdAt: daysAgo(6), tags: ["loyal", "allergy"], status: "vip" },
-    { id: uid(), phone: "+1 555 0177", name: "Marco Silva", email: "marco@nova.studio", source: "Referral", socialHandle: "@marco.s", city: "Lisbon", note: "Always orders double espresso", createdAt: daysAgo(2), tags: ["regular"], status: "active" },
-    { id: uid(), phone: "+1 555 0203", name: "Acme Corp", email: "billing@acme.io", source: "Website", city: "NYC", note: "Annual retainer client", createdAt: daysAgo(40), tags: ["b2b"], status: "active" },
-    { id: uid(), phone: "+1 555 0210", name: "Nova Studio", email: "hi@nova.studio", source: "Instagram", socialHandle: "@novastudio", city: "Berlin", createdAt: daysAgo(10), tags: ["b2b", "design"], status: "lead" },
-    { id: uid(), phone: "+1 555 0299", name: "Helix Labs", email: "ops@helix.dev", source: "TikTok", city: "SF", createdAt: daysAgo(20), tags: ["b2b", "platform"], status: "vip" },
-  ],
+  tasks: [],
+  customers: [],
   heldOrders: [
    
   ],
   receipts: [
     
   ],
-  audit: [
-    { id: uid(), at: minsAgo(18), actor: "cashier-1", action: "Discount applied", detail: "Z-1002 • -10%", severity: "warn" },
-    { id: uid(), at: minsAgo(40), actor: "system", action: "Low stock", detail: "Vanilla syrup near threshold", severity: "alert" },
-  ],
-  appointments: (() => {
-    const base = new Date(); base.setHours(10, 0, 0, 0);
-    const t = (h: number, m: number) => { const d = new Date(base); d.setHours(h, m, 0, 0); return d.toISOString(); };
-    return [
-      { id: uid(), title: "Brand kickoff", clients: ["Nova Studio"], start: t(10, 0), duration: 45, color: "stage-progress" },
-      { id: uid(), title: "Discovery call", clients: ["Acme Corp", "Helix Labs"], start: t(11, 30), duration: 30, color: "stage-new" },
-      { id: uid(), title: "Contract review", clients: ["Helix Labs"], start: t(14, 15), duration: 60, color: "stage-completed" },
-    ];
-  })(),
-  staff: [
-    { id: "owner", name: "Alex Mercer", role: "owner", phone: "+1 555 0001", email: "alex@mbe.app", pin: pin(), hiredAt: daysAgo(420), kpiTarget: 30 },
-    { id: "cashier-1", name: "Mia Chen", role: "cashier", phone: "+1 555 0188", pin: pin(), hiredAt: daysAgo(60), kpiTarget: 0 },
-    { id: "sales-1", name: "Daria Volkova", role: "sales", phone: "+1 555 0212", pin: pin(), hiredAt: daysAgo(180), kpiTarget: 12 },
-    { id: "barista-1", name: "Tom Reyes", role: "barista", phone: "+1 555 0233", pin: pin(), hiredAt: daysAgo(45), kpiTarget: 0 },
-  ],
-  shifts: [
-    { id: uid(), staffId: "cashier-1", start: new Date(today.getTime() - 3600_000 * 4).toISOString() },
-    { id: uid(), staffId: "barista-1", start: new Date(today.getTime() - 3600_000 * 2.5).toISOString() },
-  ],
+  audit: [],
+  appointments: [],
+  staff: [],
+  shifts: [],
   subscription: {
     plan: "Pro",
     priceMonthly: 49,
