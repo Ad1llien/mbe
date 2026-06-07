@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Minus, AlertTriangle, Package, Warehouse, Store, Paperclip, Bell, BellOff, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/config";
+import { apiFetch } from "@/lib/apiFetch";
 
 type Tab = "stock" | "sale";
 
@@ -20,10 +21,10 @@ export const Inventory = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch(`${API}/pos/products`)
+    apiFetch(`${API}/pos/products`)
       .then(r => r.json())
       .then(setApiProducts);
-    fetch(`${API}/pos/receipts`)
+    apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setReceipts(data); });
   }, []);
@@ -190,7 +191,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
     if (!form.name) return;
 
     if (isProduct) {
-      const newProduct = await fetch(`${API}/pos/products`, {
+      const newProduct = await apiFetch(`${API}/pos/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -213,7 +214,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
 
     if (sellInPos) {
       // Create a POS product linked to this warehouse item
-      const posProduct = await fetch(`${API}/pos/products`, {
+      const posProduct = await apiFetch(`${API}/pos/products`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,3 +316,4 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
     </DialogContent>
   );
 };
+

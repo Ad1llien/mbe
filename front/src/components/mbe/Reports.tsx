@@ -11,6 +11,7 @@ import {
   subDays, subYears, isAfter, format, startOfDay,
 } from "date-fns";
 import { API } from "@/lib/config";
+import { apiFetch } from "@/lib/apiFetch";
 
 type Period = "day" | "week" | "month" | "halfyear" | "year";
 const LABELS: Record<Period, string> = {
@@ -396,7 +397,7 @@ export const Reports = () => {
   const [exportOpen, setExportOpen]   = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/pos/receipts`)
+    apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); });
   }, []);
@@ -514,3 +515,4 @@ export const Reports = () => {
     </div>
   );
 };
+

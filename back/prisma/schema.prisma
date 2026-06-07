@@ -21,23 +21,24 @@ model User {
 
 model Product {
   id        String   @id @default(uuid())
+  ownerId   String?
   name      String
-  sku       String   @unique
+  sku       String
   price     Float
   unit      String   @default("pcs")
   createdAt DateTime @default(now())
 }
 
 model Receipt {
-  id        String        @id @default(uuid())
-  number    String        @unique
-  total     Float
-  cashierId String
-  createdAt DateTime      @default(now())
-  voided    Boolean       @default(false)
-  items     ReceiptItem[]
+  id         String        @id @default(uuid())
+  ownerId    String?
+  number     String        @unique
+  total      Float
+  cashierId  String
+  createdAt  DateTime      @default(now())
+  voided     Boolean       @default(false)
+  items      ReceiptItem[]
   voidReason String?
-
 }
 
 model ReceiptItem {

@@ -1,37 +1,39 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { PosService } from './pos.service';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('pos')
+@UseGuards(JwtAuthGuard)
 export class PosController {
   constructor(private posService: PosService) {}
 
   @Get('products')
-  getProducts() {
-    return this.posService.getProducts();
+  getProducts(@Req() req: any) {
+    return this.posService.getProducts(req.user.userId);
   }
 
   @Post('products')
-  createProduct(@Body() body: { name: string; sku: string; price: number; unit?: string }) {
-    return this.posService.createProduct(body);
+  createProduct(@Req() req: any, @Body() body: { name: string; sku: string; price: number; unit?: string }) {
+    return this.posService.createProduct(req.user.userId, body);
   }
 
   @Delete('products/:id')
-  deleteProduct(@Param('id') id: string) {
-    return this.posService.deleteProduct(id);
+  deleteProduct(@Req() req: any, @Param('id') id: string) {
+    return this.posService.deleteProduct(id, req.user.userId);
   }
 
   @Get('receipts')
-  getReceipts() {
-    return this.posService.getReceipts();
+  getReceipts(@Req() req: any) {
+    return this.posService.getReceipts(req.user.userId);
   }
 
   @Post('receipts')
-  createReceipt(@Body() body: { lines: { productId: string; name: string; price: number; qty: number }[] }) {
-    return this.posService.createReceipt(body.lines);
+  createReceipt(@Req() req: any, @Body() body: { lines: { productId: string; name: string; price: number; qty: number }[]; cashierId?: string }) {
+    return this.posService.createReceipt(req.user.userId, body.cashierId ?? req.user.userId, body.lines);
   }
 
   @Post('receipts/:id/void')
-  voidReceipt(@Param('id') id: string, @Body() body: { reason: string }) {
-  return this.posService.voidReceipt(id, body.reason);
-}
+  voidReceipt(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
+    return this.posService.voidReceipt(id, req.user.userId, body.reason);
+  }
 }

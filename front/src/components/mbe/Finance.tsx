@@ -15,6 +15,7 @@ import { Plus, Receipt, ArrowUpRight, ArrowDownRight, CalendarIcon } from "lucid
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { API } from "@/lib/config";
+import { apiFetch } from "@/lib/apiFetch";
 
 const ranges = { "7d": 7, "30d": 30, "90d": 90 } as const;
 type RangeKey = keyof typeof ranges;
@@ -32,7 +33,7 @@ export const Finance = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/pos/receipts`)
+    apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
       .finally(() => setLoading(false));

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useStore } from "./store";
 import { useAuthStore } from "@/store/authStore";
 import { Panel, SectionHeader, Stat } from "./ui";
@@ -12,6 +12,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { ArrowUpRight, ReceiptText, Wallet, Activity, Plus, ShoppingBag, UserCheck } from "lucide-react";
 import { format, parseISO, isToday, subDays, startOfDay } from "date-fns";
 import { API } from "@/lib/config";
+import { apiFetch } from "@/lib/apiFetch";
 
 const ROLE_COLOR: Record<string, string> = {
   cashier: "hsl(var(--stage-completed))",
@@ -82,7 +83,7 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
   }, [apiReceipts]);
 
   useEffect(() => {
-    fetch(`${API}/pos/receipts`)
+    apiFetch(`${API}/pos/receipts`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
       .finally(() => setLoadingReceipts(false));
@@ -90,7 +91,7 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
 
   useEffect(() => {
     if (!user?.id) { setLoadingStaff(false); return; }
-    fetch(`${API}/staff?ownerId=${user.id}`)
+    apiFetch(`${API}/staff?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiStaff(data); })
       .finally(() => setLoadingStaff(false));
@@ -363,3 +364,4 @@ const QuickExpense = ({ onAdd }: { onAdd: (t: any) => void }) => {
     </Dialog>
   );
 };
+

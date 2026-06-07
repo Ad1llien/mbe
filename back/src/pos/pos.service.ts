@@ -5,44 +5,49 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class PosService {
   constructor(private prisma: PrismaService) {}
 
-  getProducts() {
-    return this.prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
+  getProducts(ownerId: string) {
+    return this.prisma.product.findMany({
+      where: { ownerId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  createProduct(data: { name: string; sku: string; price: number; unit?: string }) {
-    return this.prisma.product.create({ data });
+  createProduct(ownerId: string, data: { name: string; sku: string; price: number; unit?: string }) {
+    return this.prisma.product.create({ data: { ...data, ownerId } });
   }
 
-  deleteProduct(id: string) {
-    return this.prisma.product.delete({ where: { id } });
+  deleteProduct(id: string, ownerId: string) {
+    return this.prisma.product.delete({ where: { id, ownerId } });
   }
 
-  getReceipts() {
+  getReceipts(ownerId: string) {
     return this.prisma.receipt.findMany({
+      where: { ownerId },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createReceipt(lines: { productId: string; name: string; price: number; qty: number }[]) {
-    const count = await this.prisma.receipt.count();
+  async createReceipt(ownerId: string, cashierId: string, lines: { productId: string; name: string; price: number; qty: number }[]) {
+    const count = await this.prisma.receipt.count({ where: { ownerId } });
     const number = `Z-${1001 + count}`;
     const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
 
     return this.prisma.receipt.create({
       data: {
+        ownerId,
         number,
         total,
-        cashierId: 'cashier-1',
+        cashierId,
         items: { create: lines.map(l => ({ ...l })) },
       },
       include: { items: true },
     });
   }
 
-  voidReceipt(id: string, reason: string) {
+  voidReceipt(id: string, ownerId: string, reason: string) {
     return this.prisma.receipt.update({
-      where: { id },
+      where: { id, ownerId },
       data: { voided: true, voidReason: reason },
     });
   }
