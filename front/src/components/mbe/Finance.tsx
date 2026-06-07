@@ -15,7 +15,7 @@ import { Plus, Receipt, ArrowUpRight, ArrowDownRight, CalendarIcon } from "lucid
 import { format, subDays, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { API } from "@/lib/config";
-import { apiFetch } from "@/lib/apiFetch";
+import { useAuthStore } from "@/store/authStore";
 
 const ranges = { "7d": 7, "30d": 30, "90d": 90 } as const;
 type RangeKey = keyof typeof ranges;
@@ -32,12 +32,15 @@ export const Finance = () => {
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const user = useAuthStore(s => s.user);
+
   useEffect(() => {
-    apiFetch(`${API}/pos/receipts`)
+    if (!user?.id) { setLoading(false); return; }
+    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.id]);
 
   const days = activeTab !== "custom" ? ranges[activeTab as RangeKey] : 30;
   const now = new Date();

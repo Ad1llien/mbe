@@ -9,10 +9,11 @@ import { Plus, Minus, X, PauseCircle, PlayCircle, ReceiptText, User, Trash2, Sea
 import { format, parseISO, isSameDay} from "date-fns";
 import { toast } from "@/hooks/use-toast";
 import { API } from "@/lib/config";
-import { apiFetch } from "@/lib/apiFetch";
+import { useAuthStore } from "@/store/authStore";
 
 export const POS = () => {
   const { inventory, holdOrder, heldOrders, resumeOrder, removeHeldOrder, checkoutOrder, customers, addCustomer, log, prepInstructions } = useStore();
+  const user = useAuthStore(s => s.user);
   const [historyDate, setHistoryDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [historyQuery, setHistoryQuery] = useState("");
   const [viewReceipt, setViewReceipt] = useState<string | null>(null);
@@ -50,14 +51,15 @@ export const POS = () => {
   ];
 
   useEffect(() => {
-    apiFetch(`${API}/pos/products`)
+    if (!user?.id) return;
+    fetch(`${API}/pos/products?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setProducts(data); });
 
-    apiFetch(`${API}/pos/receipts`)
+    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setReceipts(data); });
-  }, []);
+  }, [user?.id]);
 
  
 
@@ -93,7 +95,7 @@ export const POS = () => {
 
   const checkout = async () => {
     if (cart.length === 0) return;
-    const res = await apiFetch(`${API}/pos/receipts`, {
+    const res = await fetch(`${API}/pos/receipts?ownerId=${user?.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lines: cart.map(l => ({
@@ -384,7 +386,7 @@ export const POS = () => {
 
             const  confirmVoid = async () => {
               if (!finalReason) return;
-              await apiFetch(`${API}/pos/receipts/${r.id}/void`, {
+              await fetch(`${API}/pos/receipts/${r.id}/void?ownerId=${user?.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reason: finalReason }),

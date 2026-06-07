@@ -83,11 +83,12 @@ export const Dashboard = ({ onGoto }: { onGoto?: (s: string) => void }) => {
   }, [apiReceipts]);
 
   useEffect(() => {
-    apiFetch(`${API}/pos/receipts`)
+    if (!user?.id) { setLoadingReceipts(false); return; }
+    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); })
       .finally(() => setLoadingReceipts(false));
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) { setLoadingStaff(false); return; }

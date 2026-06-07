@@ -9,25 +9,27 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Plus, Minus, AlertTriangle, Package, Warehouse, Store, Paperclip, Bell, BellOff, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/config";
-import { apiFetch } from "@/lib/apiFetch";
+import { useAuthStore } from "@/store/authStore";
 
 type Tab = "stock" | "sale";
 
 export const Inventory = () => {
   const { inventory, addInventory, updateStock, updateInventory } = useStore();
+  const user = useAuthStore(s => s.user);
   const [tab, setTab] = useState<Tab>("stock");
   const [open, setOpen] = useState(false);
   const [apiProducts, setApiProducts] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
 
   useEffect(() => {
-    apiFetch(`${API}/pos/products`)
+    if (!user?.id) return;
+    fetch(`${API}/pos/products?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiProducts(data); });
-    apiFetch(`${API}/pos/receipts`)
+    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setReceipts(data); });
-  }, []);
+  }, [user?.id]);
 
   // Calculate units sold per productId from POS receipts
   const soldByProductId = useMemo(() => {
@@ -57,6 +59,7 @@ export const Inventory = () => {
             </DialogTrigger>
             <AddItemDialog
               tab={tab}
+              ownerId={user?.id ?? ""}
               onClose={() => setOpen(false)}
               onSave={addInventory}
               onProductAdded={(p) => setApiProducts(prev => [...prev, p])}
@@ -173,8 +176,9 @@ const Row = ({ item: i, onAdjust, soldQty }: { item: any; onAdjust: (id: string,
   );
 };
 
-const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
+const AddItemDialog = ({ tab, ownerId, onClose, onSave, onProductAdded }: {
   tab: Tab;
+  ownerId: string;
   onClose: () => void;
   onSave: (i: Omit<InventoryItem, "id">) => void;
   onProductAdded: (p: any) => void;
@@ -191,7 +195,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
     if (!form.name) return;
 
     if (isProduct) {
-      const newProduct = await apiFetch(`${API}/pos/products`, {
+      const newProduct = await fetch(`${API}/pos/products?ownerId=${ownerId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -214,7 +218,7 @@ const AddItemDialog = ({ tab, onClose, onSave, onProductAdded }: {
 
     if (sellInPos) {
       // Create a POS product linked to this warehouse item
-      const posProduct = await apiFetch(`${API}/pos/products`, {
+      const posProduct = await fetch(`${API}/pos/products?ownerId=${ownerId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

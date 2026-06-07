@@ -11,7 +11,7 @@ import {
   subDays, subYears, isAfter, format, startOfDay,
 } from "date-fns";
 import { API } from "@/lib/config";
-import { apiFetch } from "@/lib/apiFetch";
+import { useAuthStore } from "@/store/authStore";
 
 type Period = "day" | "week" | "month" | "halfyear" | "year";
 const LABELS: Record<Period, string> = {
@@ -392,15 +392,17 @@ function ExportModal({ open, onClose, apiReceipts, transactions, deals }: {
 ───────────────────────────────────────── */
 export const Reports = () => {
   const { transactions, deals } = useStore();
+  const user = useAuthStore(s => s.user);
   const [period, setPeriod]       = useState<Period>("week");
   const [apiReceipts, setApiReceipts] = useState<any[]>([]);
   const [exportOpen, setExportOpen]   = useState(false);
 
   useEffect(() => {
-    apiFetch(`${API}/pos/receipts`)
+    if (!user?.id) return;
+    fetch(`${API}/pos/receipts?ownerId=${user.id}`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setApiReceipts(data); });
-  }, []);
+  }, [user?.id]);
 
   const inPeriod = (iso: string) => {
     const d = parseISO(iso);

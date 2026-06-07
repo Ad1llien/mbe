@@ -1,39 +1,37 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { PosService } from './pos.service';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 @Controller('pos')
-@UseGuards(JwtAuthGuard)
 export class PosController {
   constructor(private posService: PosService) {}
 
   @Get('products')
-  getProducts(@Req() req: any) {
-    return this.posService.getProducts(req.user.userId);
+  getProducts(@Query('ownerId') ownerId: string) {
+    return this.posService.getProducts(ownerId);
   }
 
   @Post('products')
-  createProduct(@Req() req: any, @Body() body: { name: string; sku: string; price: number; unit?: string }) {
-    return this.posService.createProduct(req.user.userId, body);
+  createProduct(@Query('ownerId') ownerId: string, @Body() body: { name: string; sku: string; price: number; unit?: string }) {
+    return this.posService.createProduct(ownerId, body);
   }
 
   @Delete('products/:id')
-  deleteProduct(@Req() req: any, @Param('id') id: string) {
-    return this.posService.deleteProduct(id, req.user.userId);
+  deleteProduct(@Param('id') id: string, @Query('ownerId') ownerId: string) {
+    return this.posService.deleteProduct(id, ownerId);
   }
 
   @Get('receipts')
-  getReceipts(@Req() req: any) {
-    return this.posService.getReceipts(req.user.userId);
+  getReceipts(@Query('ownerId') ownerId: string) {
+    return this.posService.getReceipts(ownerId);
   }
 
   @Post('receipts')
-  createReceipt(@Req() req: any, @Body() body: { lines: { productId: string; name: string; price: number; qty: number }[]; cashierId?: string }) {
-    return this.posService.createReceipt(req.user.userId, body.cashierId ?? req.user.userId, body.lines);
+  createReceipt(@Query('ownerId') ownerId: string, @Body() body: { lines: { productId: string; name: string; price: number; qty: number }[]; cashierId?: string }) {
+    return this.posService.createReceipt(ownerId, body.cashierId ?? ownerId, body.lines);
   }
 
   @Post('receipts/:id/void')
-  voidReceipt(@Req() req: any, @Param('id') id: string, @Body() body: { reason: string }) {
-    return this.posService.voidReceipt(id, req.user.userId, body.reason);
+  voidReceipt(@Param('id') id: string, @Query('ownerId') ownerId: string, @Body() body: { reason: string }) {
+    return this.posService.voidReceipt(id, ownerId, body.reason);
   }
 }
