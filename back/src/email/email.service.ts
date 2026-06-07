@@ -5,26 +5,43 @@ import * as nodemailer from 'nodemailer';
 export class EmailService {
   private transporter: nodemailer.Transporter;
   private readonly logger = new Logger(EmailService.name);
+  private get senderAddress() {
+    return process.env.BREVO_SMTP_KEY
+      ? process.env.BREVO_SENDER ?? process.env.BREVO_USER ?? ''
+      : process.env.GMAIL_USER ?? '';
+  }
 
   constructor() {
-    const user = process.env.GMAIL_USER;
-    const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
+    // Prefer Brevo (works from cloud hosting); fall back to Gmail for local dev
+    const useBrevo = !!process.env.BREVO_SMTP_KEY;
 
-    this.logger.log(`Gmail user: ${user} | pass length: ${pass?.length ?? 0}`);
+    if (useBrevo) {
+      this.logger.log('Email provider: Brevo SMTP');
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.BREVO_USER,           // your Brevo login email
+          pass: process.env.BREVO_SMTP_KEY,        // SMTP key from Brevo dashboard
+        },
+      });
+    } else {
+      const user = process.env.GMAIL_USER;
+      const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
+      this.logger.log(`Email provider: Gmail | user: ${user} | pass length: ${pass?.length ?? 0}`);
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: { user, pass },
+      });
+    }
 
-    // Port 587 + STARTTLS — works everywhere including Windows and Render
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      requireTLS: true,
-      auth: { user, pass },
-    });
-
-    // Verify connection at startup and log the result
     this.transporter.verify((err) => {
       if (err) {
-        this.logger.error(`SMTP connection FAILED: ${err.message}`);
+        this.logger.error(`SMTP verify FAILED: ${err.message}`);
       } else {
         this.logger.log('SMTP connection OK — ready to send mail');
       }
@@ -34,7 +51,7 @@ export class EmailService {
   async testEmail(to: string): Promise<{ ok: boolean; message: string }> {
     try {
       await this.transporter.sendMail({
-        from: `"MBE Test" <${process.env.GMAIL_USER}>`,
+        from: `"MBE Test" <${this.senderAddress}>`,
         to,
         subject: 'MBE — Test email',
         html: '<p>If you see this, email is working ✅</p>',
@@ -49,7 +66,7 @@ export class EmailService {
   async sendVerificationEmail(email: string, verificationLink: string) {
     try {
       await this.transporter.sendMail({
-        from: `"MBE" <${process.env.GMAIL_USER}>`,
+        from: `"MBE" <${this.senderAddress}>`,
         to: email,
         subject: 'Подтвердите email — MBE',
         html: `
@@ -72,7 +89,7 @@ export class EmailService {
   async sendStaffInviteEmail(email: string, name: string, verifyLink: string, tempPassword: string) {
     try {
       await this.transporter.sendMail({
-        from: `"MBE" <${process.env.GMAIL_USER}>`,
+        from: `"MBE" <${this.senderAddress}>`,
         to: email,
         subject: 'Вас добавили в команду — MBE',
         html: `

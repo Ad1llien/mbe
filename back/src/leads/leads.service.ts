@@ -45,12 +45,16 @@ export class LeadsService {
     });
   }
 
-  ensureBusiness(userId: string, name: string) {
-    return this.prisma.business.upsert({
-      where: { userId },
-      create: { userId, name },
-      update: {},
-    });
+  async ensureBusiness(userId: string, name: string) {
+    // findFirst + create instead of upsert — works even without DB unique constraint
+    const existing = await this.prisma.business.findFirst({ where: { userId } });
+    if (existing) return existing;
+    try {
+      return await this.prisma.business.create({ data: { userId, name } });
+    } catch {
+      // Race condition: two parallel requests created at same time — return existing
+      return this.prisma.business.findFirst({ where: { userId } });
+    }
   }
   getAllBusinesses() {
     return this.prisma.business.findMany();
