@@ -1,12 +1,14 @@
 import { Body, Controller, Post, Get, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
+import { EmailService } from 'src/email/email.service';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private authService: AuthService,
     private usersService: UsersService,
+    private emailService: EmailService,
   ) {}
 
   @Post('register')
@@ -45,6 +47,13 @@ verifyEmail(@Body() body: { token: string }) {
 @Get('check-verified')
 checkVerified(@Query('email') email: string) {
   return this.authService.checkVerified(email);
+}
+
+// Debug: GET /auth/test-email?to=someone@example.com
+@Get('test-email')
+testEmail(@Query('to') to: string) {
+  const recipient = to || process.env.GMAIL_USER || '';
+  return this.emailService.testEmail(recipient);
 }
 
 }

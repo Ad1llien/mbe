@@ -1,18 +1,48 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(EmailService.name);
 
   constructor() {
     const user = process.env.GMAIL_USER;
-    const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, ''); // strip spaces just in case
-    console.log('[EmailService] Gmail user:', user, '| pass set:', !!pass);
+    const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, '');
+
+    this.logger.log(`Gmail user: ${user} | pass length: ${pass?.length ?? 0}`);
+
+    // Use explicit host/port instead of service:'gmail' — more reliable on cloud hosts
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true, // SSL
       auth: { user, pass },
     });
+
+    // Verify connection at startup and log the result
+    this.transporter.verify((err) => {
+      if (err) {
+        this.logger.error(`SMTP connection FAILED: ${err.message}`);
+      } else {
+        this.logger.log('SMTP connection OK — ready to send mail');
+      }
+    });
+  }
+
+  async testEmail(to: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      await this.transporter.sendMail({
+        from: `"MBE Test" <${process.env.GMAIL_USER}>`,
+        to,
+        subject: 'MBE — Test email',
+        html: '<p>If you see this, email is working ✅</p>',
+      });
+      return { ok: true, message: `Test email sent to ${to}` };
+    } catch (e: any) {
+      this.logger.error('Test email failed:', e.message);
+      return { ok: false, message: e.message };
+    }
   }
 
   async sendVerificationEmail(email: string, verificationLink: string) {
@@ -32,9 +62,9 @@ export class EmailService {
           </div>
         `,
       });
-      console.log('Verification email sent to', email);
-    } catch (e) {
-      console.error('Gmail SMTP error:', e);
+      this.logger.log(`Verification email sent to ${email}`);
+    } catch (e: any) {
+      this.logger.error(`Failed to send verification email: ${e.message}`);
     }
   }
 
@@ -58,9 +88,9 @@ export class EmailService {
           </div>
         `,
       });
-      console.log('Staff invite sent to', email);
-    } catch (e) {
-      console.error('Gmail SMTP error:', e);
+      this.logger.log(`Staff invite sent to ${email}`);
+    } catch (e: any) {
+      this.logger.error(`Failed to send staff invite: ${e.message}`);
     }
   }
 }
