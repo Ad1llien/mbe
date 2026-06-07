@@ -44,6 +44,14 @@ export class LeadsService {
       data: { userId, name },
     });
   }
+
+  ensureBusiness(userId: string, name: string) {
+    return this.prisma.business.upsert({
+      where: { userId },
+      create: { userId, name },
+      update: {},
+    });
+  }
   getAllBusinesses() {
     return this.prisma.business.findMany();
   }

@@ -28,8 +28,13 @@ webhook(
   }
 
   @Post('business')
-createBusiness(@Body() body: { userId: string; name: string }) {
-  return this.leadsService.createBusiness(body.userId, body.name);
+  createBusiness(@Body() body: { userId: string; name: string }) {
+    return this.leadsService.createBusiness(body.userId, body.name);
+  }
+
+  @Post('business/ensure')
+  ensureBusiness(@Body() body: { userId: string; name: string }) {
+    return this.leadsService.ensureBusiness(body.userId, body.name);
   }
   @Get('business')
   getAllBusinesses() {

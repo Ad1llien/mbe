@@ -46,21 +46,14 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`${API}/leads/business/my?userId=${user.id}`)
+    // upsert — creates if missing, returns existing if already there
+    fetch(`${API}/leads/business/ensure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, name: user.email }),
+    })
       .then(r => r.json())
-      .then(async data => {
-        if (data?.id) {
-          setBusiness(data);
-        } else {
-          // Auto-create a business for this user if none exists
-          const biz = await fetch(`${API}/leads/business`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, name: user.email }),
-          }).then(r => r.json());
-          if (biz?.id) setBusiness(biz);
-        }
-      });
+      .then(data => { if (data?.id) setBusiness(data); });
   }, [user?.id, refreshKey]);
 
   const webhookUrl = business
