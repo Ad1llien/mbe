@@ -1,74 +1,63 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Mail, Lock, Loader2, ArrowRight, Building2, User as UserIcon, Gift } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight, CheckCircle } from "lucide-react";
 import { API } from "@/lib/config";
-
-const schema = z.object({
-  fullName: z.string().trim().min(2, "Введите ваше имя"),
-  companyName: z.string().trim().min(2, "Укажите название компании"),
-  email: z.string().trim().email("Введите корректный email"),
-  password: z.string().min(6, "Минимум 6 символов"),
-  confirm: z.string().min(6, "Подтвердите пароль"),
-  agree: z.literal(true, { errorMap: () => ({ message: "Необходимо согласие" }) }),
-}).refine((d) => d.password === d.confirm, { message: "Пароли не совпадают", path: ["confirm"] });
-
-type FormValues = z.infer<typeof schema>;
 
 const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-white placeholder-white/30 outline-none transition-colors focus:border-white/40";
 
-function Field({ label, error, icon: Icon, children }: { label: string; error?: string; icon: typeof Mail; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium uppercase tracking-wider text-white/60">{label}</label>
-      <div className="relative">
-        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-        {children}
-      </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
-    </div>
-  );
-}
-
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [step, setStep] = useState<1 | 2>(1);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const [refCode, setRefCode] = useState(() => new URLSearchParams(window.location.search).get("ref") || "");
-  const [refValid, setRefValid] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { fullName: "", companyName: "", email: "", password: "", confirm: "", agree: false as unknown as true },
-  });
+  // ── Step 1: submit email + password ──────────────────────────────
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (password !== confirm) { setError("Пароли не совпадают"); return; }
+    if (password.length < 6) { setError("Минимум 6 символов"); return; }
 
-  const checkRefCode = async (code: string) => {
-    if (!code) { setRefValid(null); return; }
-    const res = await fetch(`${API}/auth/check-ref?code=${code}`).then(r => r.json());
-    setRefValid(res.valid);
-  };
-
-  const onSubmit = async (data: FormValues) => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: data.email, password: data.password, refCode: refCode || undefined }),
+        body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setToast(err.message || "Ошибка регистрации");
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "Ошибка регистрации");
         return;
       }
-      setToast(refCode && refValid ? "🎁 Промокод применён! Проверьте email для подтверждения" : "✉️ Письмо с подтверждением отправлено на " + data.email);
-      setTimeout(() => navigate("/login"), 3000);
+      setStep(2);
     } catch {
-      setToast("Ошибка соединения с сервером");
+      setError("Ошибка соединения с сервером");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Step 2: check if email is verified ───────────────────────────
+  const handleCheckVerified = async () => {
+    setChecking(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/auth/check-verified?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      if (data.isVerified) {
+        navigate("/onboarding");
+      } else {
+        setError("Email ещё не подтверждён. Проверьте почту и перейдите по ссылке.");
+      }
+    } catch {
+      setError("Ошибка соединения с сервером");
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -76,87 +65,108 @@ export default function RegisterPage() {
     <main className="relative min-h-screen overflow-hidden bg-black">
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),transparent_60%)]" />
 
-      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-4 py-10">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
         <div className="mb-8 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-white/40">MBE</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Создайте аккаунт</h1>
-          <p className="mt-2 text-sm text-white/60">Несколько данных — и вы внутри экосистемы MBE.</p>
+          {step === 1 && (
+            <>
+              <h1 className="mt-3 text-3xl font-semibold text-white">Создайте аккаунт</h1>
+              <p className="mt-2 text-sm text-white/60">Введите email и придумайте пароль.</p>
+            </>
+          )}
+          {step === 2 && (
+            <>
+              <h1 className="mt-3 text-3xl font-semibold text-white">Подтвердите email</h1>
+              <p className="mt-2 text-sm text-white/60">Мы отправили письмо на{" "}<span className="text-white font-medium">{email}</span></p>
+            </>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div className="mb-6 flex items-center gap-2">
+          {[1, 2].map((s) => (
+            <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${s <= step ? "bg-white" : "bg-white/15"}`} />
+          ))}
         </div>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md sm:p-8">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Ваше имя" error={errors.fullName?.message} icon={UserIcon}>
-                <input {...register("fullName")} placeholder="Иван Иванов" className={inputCls} />
-              </Field>
-              <Field label="Название юр. лица (ТОО / ИП)" error={errors.companyName?.message} icon={Building2}>
-                <input {...register("companyName")} placeholder='ТОО "Компания"' className={inputCls} />
-              </Field>
-            </div>
 
-            <Field label="Email" error={errors.email?.message} icon={Mail}>
-              <input type="email" autoComplete="email" {...register("email")} placeholder="you@company.com" className={inputCls} />
-            </Field>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Пароль" error={errors.password?.message} icon={Lock}>
-                <input type="password" autoComplete="new-password" {...register("password")} placeholder="••••••••" className={inputCls} />
-              </Field>
-              <Field label="Повторите пароль" error={errors.confirm?.message} icon={Lock}>
-                <input type="password" autoComplete="new-password" {...register("confirm")} placeholder="••••••••" className={inputCls} />
-              </Field>
-            </div>
-
-            {/* Referral code */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase tracking-wider text-white/60">
-                Промокод <span className="normal-case text-white/30">(необязательно)</span>
-              </label>
-              <div className="relative">
-                <Gift className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                <input
-                  value={refCode}
-                  onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefValid(null); }}
-                  onBlur={() => checkRefCode(refCode)}
-                  placeholder="MBE-XXXXX"
-                  className={`${inputCls} ${refValid === true ? "border-green-500/60" : refValid === false ? "border-red-500/60" : ""}`}
-                />
-                {refValid === true && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-xs">✓ Действителен</span>}
-                {refValid === false && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-xs">✗ Не найден</span>}
+          {/* ── STEP 1 ── */}
+          {step === 1 && (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-white/60">Email</label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="you@company.com" className={inputCls} />
+                </div>
               </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-white/60">Пароль</label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••" className={inputCls} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-white/60">Повторите пароль</label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  <input type="password" required value={confirm} onChange={e => setConfirm(e.target.value)}
+                    placeholder="••••••••" className={inputCls} />
+                </div>
+              </div>
+
+              {error && <p className="text-xs text-red-400">{error}</p>}
+
+              <button type="submit" disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-transparent px-6 py-3.5 text-base font-medium text-white transition-all hover:border-white hover:bg-white hover:text-black disabled:opacity-60">
+                {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Отправляем письмо...</> : <>Далее <ArrowRight className="h-4 w-4" /></>}
+              </button>
+            </form>
+          )}
+
+          {/* ── STEP 2 ── */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-white/60" />
+                  <p className="text-sm text-white/80">
+                    Письмо отправлено на <strong className="text-white">{email}</strong>
+                  </p>
+                </div>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  Откройте письмо от MBE и нажмите кнопку <strong className="text-white/70">«Подтвердить email»</strong>. После этого вернитесь сюда.
+                </p>
+              </div>
+
+              {error && <p className="text-xs text-red-400">{error}</p>}
+
+              <button onClick={handleCheckVerified} disabled={checking}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-transparent px-6 py-3.5 text-base font-medium text-white transition-all hover:border-white hover:bg-white hover:text-black disabled:opacity-60">
+                {checking
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Проверяем...</>
+                  : <><CheckCircle className="h-4 w-4" /> Я перешёл по ссылке — проверить статус</>}
+              </button>
+
+              <button onClick={() => setStep(1)} className="w-full text-sm text-white/40 hover:text-white/60 transition-colors">
+                ← Изменить email
+              </button>
             </div>
+          )}
+        </section>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/70 transition-colors hover:border-white/20">
-              <input type="checkbox" {...register("agree")} className="mt-0.5 h-4 w-4 accent-white" />
-              <span>Я принимаю условия использования и политику конфиденциальности MBE.</span>
-            </label>
-            {errors.agree && <p className="text-xs text-red-400">{errors.agree.message}</p>}
-
-            <button type="submit" disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-transparent px-6 py-3.5 text-base font-medium text-white transition-all hover:border-white hover:bg-white hover:text-black disabled:opacity-60">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Создаём аккаунт...</> : <>Зарегистрироваться <ArrowRight className="h-4 w-4" /></>}
-            </button>
-          </form>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="text-xs uppercase tracking-wider text-white/40">или</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          <p className="text-center text-sm text-white/60">
+        {step === 1 && (
+          <p className="mt-6 text-center text-sm text-white/60">
             Уже есть аккаунт?{" "}
             <Link to="/login" className="font-medium text-white underline-offset-4 hover:underline">Войти</Link>
           </p>
-        </section>
-        <p className="mt-6 text-center text-xs text-white/40">© {new Date().getFullYear()} MBE. Управляйте бизнесом красиво.</p>
+        )}
+        <p className="mt-4 text-center text-xs text-white/40">© {new Date().getFullYear()} MBE.</p>
       </div>
-
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white backdrop-blur-xl">
-          {toast}
-        </div>
-      )}
     </main>
   );
 }

@@ -3,17 +3,20 @@ import { persist } from "zustand/middleware";
 
 export type LegalStatus = "TOO" | "IP";
 export type ModuleKey = "finance" | "warehouse" | "crm" | "tasks";
-export type DeliveryMethod = "email" | "whatsapp";
+export type DeliveryMethod = "email" | "whatsapp"; // kept for compat
 
 export interface UserData {
-  email: string;
-  password: string;
-  companyName: string;
+  fullName: string;
   phone: string;
-  deliveryMethod: DeliveryMethod;
+  // legacy (kept so old Step2 refs don't crash if any remain)
+  email?: string;
+  password?: string;
+  companyName?: string;
+  deliveryMethod?: DeliveryMethod;
 }
 
 export interface CompanyData {
+  companyName: string;
   industry: string;
   teamSize: string;
   legalStatus: LegalStatus | "";
@@ -34,12 +37,15 @@ interface OnboardingState {
   reset: () => void;
 }
 
+const defaultUser: UserData = { fullName: "", phone: "" };
+const defaultCompany: CompanyData = { companyName: "", industry: "", teamSize: "", legalStatus: "" };
+
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set, get) => ({
       step: 1,
-      user: { email: "", password: "", companyName: "", phone: "", deliveryMethod: "whatsapp" },
-      company: { industry: "", teamSize: "", legalStatus: "" },
+      user: defaultUser,
+      company: defaultCompany,
       selectedModules: [],
       setStep: (step) => set({ step }),
       next: () => {
@@ -57,13 +63,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         set({ selectedModules: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
       },
       setModules: (m) => set({ selectedModules: m }),
-      reset: () =>
-        set({
-          step: 1,
-          user: { email: "", password: "", companyName: "", phone: "", deliveryMethod: "whatsapp" },
-          company: { industry: "", teamSize: "", legalStatus: "" },
-          selectedModules: [],
-        }),
+      reset: () => set({ step: 1, user: defaultUser, company: defaultCompany, selectedModules: [] }),
     }),
     { name: "mbe-onboarding" }
   )

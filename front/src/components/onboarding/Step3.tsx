@@ -15,6 +15,7 @@ const MODULES: { key: ModuleKey; title: string; description: string; Icon: typeo
 ];
 
 const schema = z.object({
+  companyName: z.string().trim().min(2, "Введите название компании"),
   industry: z.string().min(1, "Выберите отрасль"),
   teamSize: z.string().min(1, "Выберите размер команды"),
   legalStatus: z.enum(["TOO", "IP"], { errorMap: () => ({ message: "Выберите статус" }) }),
@@ -29,6 +30,7 @@ export function Step3() {
   const { register, handleSubmit, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      companyName: company.companyName ?? "",
       industry: company.industry, teamSize: company.teamSize,
       legalStatus: (company.legalStatus || undefined) as LegalStatus | undefined,
       selectedModules,
@@ -43,7 +45,7 @@ export function Step3() {
   };
 
   const onSubmit = async (data: FormValues) => {
-    setCompany({ industry: data.industry, teamSize: data.teamSize, legalStatus: data.legalStatus });
+    setCompany({ companyName: data.companyName, industry: data.industry, teamSize: data.teamSize, legalStatus: data.legalStatus });
     setModules(data.selectedModules);
     await new Promise((r) => setTimeout(r, 600));
     localStorage.setItem("mbe-registration", JSON.stringify({ user: { email: user.email }, company: data, completedAt: new Date().toISOString() }));
@@ -56,6 +58,15 @@ export function Step3() {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold text-white sm:text-3xl">Расскажите о компании</h1>
         <p className="text-sm text-white/60">Настроим MBE под ваш бизнес.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/60">
+          <Building2 className="h-3.5 w-3.5" /> Название юр. лица (ТОО / ИП)
+        </label>
+        <input {...register("companyName")} placeholder='ТОО "Моя Компания"'
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-white/30 outline-none transition-colors focus:border-white/40" />
+        {errors.companyName && <p className="text-xs text-red-400">{errors.companyName.message}</p>}
       </div>
 
       <div className="space-y-1.5">
