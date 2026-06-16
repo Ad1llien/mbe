@@ -1,56 +1,64 @@
-import { useEffect, useState } from "react";
-import { Rocket, BarChart3, ShieldCheck, ArrowRight, Quote } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 
-const QUOTES = [
-  { text: "Не бойтесь конкуренции — бойтесь отсутствия системы.", author: "Стив Джобс" },
-];
-const FEATURES = [
-  { Icon: Rocket, text: "Финансы, склад, CRM и задачи в реальном времени" },
-  { Icon: BarChart3, text: "Аналитика и прогнозы для роста вашего дела" },
-  { Icon: ShieldCheck, text: "Безопасные данные и роли для сотрудников" },
+const OPTIONS = [
+  { id: "instagram", label: "Instagram / Facebook" },
+  { id: "tiktok", label: "TikTok" },
+  { id: "google", label: "Google / Поиск" },
+  { id: "friend", label: "Рекомендация друга или коллеги" },
+  { id: "telegram", label: "Telegram канал / чат" },
+  { id: "event", label: "Мероприятие / конференция" },
+  { id: "other", label: "Другое" },
 ];
 
 export function Step1() {
   const next = useOnboardingStore((s) => s.next);
-  const [qIdx, setQIdx] = useState(0);
+  const setUser = useOnboardingStore((s) => s.setUser);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  useEffect(() => {
-    const id = setInterval(() => setQIdx((i) => (i + 1) % QUOTES.length), 6000);
-    return () => clearInterval(id);
-  }, []);
-
-  const q = QUOTES[qIdx];
+  const handleNext = () => {
+    if (!selected) return;
+    setUser({ source: selected } as any);
+    next();
+  };
 
   return (
     <div className="space-y-8">
-      <div className="space-y-3 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          MBE — Управляйте бизнесом в одной экосистеме
-        </h1>
-        <p className="text-sm text-white/60">Всё, что нужно вашей компании, — в одном окне.</p>
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-white/40">Шаг 1 из 3</p>
+        <h1 className="text-2xl font-semibold text-white sm:text-3xl">Откуда вы узнали про MBE?</h1>
+        <p className="text-sm text-white/50">Поможет нам стать лучше.</p>
       </div>
 
-      <ul className="space-y-3">
-        {FEATURES.map(({ Icon, text }) => (
-          <li key={text} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-              <Icon className="h-5 w-5 text-white" />
+      <div className="space-y-2">
+        {OPTIONS.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setSelected(id)}
+            className={`w-full flex items-center gap-3 rounded-xl border px-4 py-3.5 text-sm font-medium text-left transition-all ${
+              selected === id
+                ? "border-white bg-white text-black"
+                : "border-white/10 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10"
+            }`}
+          >
+            <span className={`h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${
+              selected === id ? "border-black" : "border-white/30"
+            }`}>
+              {selected === id && <span className="h-2 w-2 rounded-full bg-black" />}
             </span>
-            <span className="pt-2 text-sm text-white/90">{text}</span>
-          </li>
+            {label}
+          </button>
         ))}
-      </ul>
-
-      <div key={qIdx} className="rounded-xl border border-white/10 bg-white/5 p-5 backdrop-blur-md">
-        <Quote className="mb-2 h-4 w-4 text-white/40" />
-        <p className="text-sm italic text-white/80">«{q.text}»</p>
-        <p className="mt-2 text-xs text-white/50">— {q.author}</p>
       </div>
 
-      <button onClick={next}
-        className="group flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-transparent px-6 py-4 text-base font-medium text-white transition-all hover:border-white hover:bg-white hover:text-black">
-        Остаться с MBE
+      <button
+        onClick={handleNext}
+        disabled={!selected}
+        className="group flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-transparent px-6 py-4 text-base font-medium text-white transition-all hover:border-white hover:bg-white hover:text-black disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        Далее
         <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
       </button>
     </div>
