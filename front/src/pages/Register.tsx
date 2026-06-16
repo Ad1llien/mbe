@@ -2,11 +2,25 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Mail, Lock, Loader2, ArrowRight, CheckCircle } from "lucide-react";
 import { API } from "@/lib/config";
+import { useOnboardingStore } from "@/stores/onboardingStore";
+import { useAuthStore } from "@/store/authStore";
 
 const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-white placeholder-white/30 outline-none transition-colors focus:border-white/40";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { setVerifiedAt, reset, isComplete } = useOnboardingStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // If already completed onboarding → go to dashboard
+  if (isComplete && isAuthenticated) {
+    navigate("/", { replace: true });
+    return null;
+  }
+
+  // Reset any previous incomplete session when landing on register
+  reset();
+
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,6 +64,7 @@ export default function RegisterPage() {
       const res = await fetch(`${API}/auth/check-verified?email=${encodeURIComponent(email)}`);
       const data = await res.json();
       if (data.isVerified) {
+        setVerifiedAt(Date.now()); // start 15-min registration session
         navigate("/onboarding");
       } else {
         setError("Email ещё не подтверждён. Проверьте почту и перейдите по ссылке.");

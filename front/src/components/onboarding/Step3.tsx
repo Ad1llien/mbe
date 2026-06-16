@@ -24,7 +24,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function Step3() {
-  const { company, selectedModules, setCompany, setModules, prev, user, reset } = useOnboardingStore();
+  const { company, selectedModules, setCompany, setModules, prev, user, reset, setComplete } = useOnboardingStore();
   const navigate = useNavigate();
 
   const { register, handleSubmit, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
@@ -47,9 +47,8 @@ export function Step3() {
   const onSubmit = async (data: FormValues) => {
     setCompany({ companyName: data.companyName, industry: data.industry, teamSize: data.teamSize, legalStatus: data.legalStatus });
     setModules(data.selectedModules);
+    setComplete(); // unlock dashboard access
     await new Promise((r) => setTimeout(r, 600));
-    localStorage.setItem("mbe-registration", JSON.stringify({ user: { email: user.email }, company: data, completedAt: new Date().toISOString() }));
-    reset();
     navigate("/");
   };
 

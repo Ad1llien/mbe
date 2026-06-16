@@ -3,12 +3,11 @@ import { persist } from "zustand/middleware";
 
 export type LegalStatus = "TOO" | "IP";
 export type ModuleKey = "finance" | "warehouse" | "crm" | "tasks";
-export type DeliveryMethod = "email" | "whatsapp"; // kept for compat
+export type DeliveryMethod = "email" | "whatsapp";
 
 export interface UserData {
   fullName: string;
   phone: string;
-  // legacy (kept so old Step2 refs don't crash if any remain)
   email?: string;
   password?: string;
   companyName?: string;
@@ -22,11 +21,16 @@ export interface CompanyData {
   legalStatus: LegalStatus | "";
 }
 
+const SESSION_DURATION = 15 * 60 * 1000; // 15 minutes in ms
+
 interface OnboardingState {
   step: 1 | 2 | 3;
   user: UserData;
   company: CompanyData;
   selectedModules: ModuleKey[];
+  verifiedAt: number | null;   // timestamp when email was verified
+  isComplete: boolean;          // onboarding fully finished
+
   setStep: (step: 1 | 2 | 3) => void;
   next: () => void;
   prev: () => void;
@@ -34,6 +38,9 @@ interface OnboardingState {
   setCompany: (c: Partial<CompanyData>) => void;
   toggleModule: (m: ModuleKey) => void;
   setModules: (m: ModuleKey[]) => void;
+  setVerifiedAt: (ts: number) => void;
+  setComplete: () => void;
+  isSessionExpired: () => boolean;
   reset: () => void;
 }
 
@@ -47,6 +54,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       user: defaultUser,
       company: defaultCompany,
       selectedModules: [],
+      verifiedAt: null,
+      isComplete: false,
+
       setStep: (step) => set({ step }),
       next: () => {
         const s = get().step;
@@ -63,8 +73,24 @@ export const useOnboardingStore = create<OnboardingState>()(
         set({ selectedModules: cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m] });
       },
       setModules: (m) => set({ selectedModules: m }),
-      reset: () => set({ step: 1, user: defaultUser, company: defaultCompany, selectedModules: [] }),
+      setVerifiedAt: (ts) => set({ verifiedAt: ts }),
+      setComplete: () => set({ isComplete: true }),
+      isSessionExpired: () => {
+        const { verifiedAt } = get();
+        if (!verifiedAt) return true;
+        return Date.now() - verifiedAt > SESSION_DURATION;
+      },
+      reset: () => set({
+        step: 1,
+        user: defaultUser,
+        company: defaultCompany,
+        selectedModules: [],
+        verifiedAt: null,
+        // isComplete intentionally NOT reset — if finished once, stays finished
+      }),
     }),
     { name: "mbe-onboarding" }
   )
 );
+
+export { SESSION_DURATION };
