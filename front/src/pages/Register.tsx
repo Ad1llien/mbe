@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Mail, Lock, Loader2, ArrowRight, CheckCircle } from "lucide-react";
 import { API } from "@/lib/config";
 import { useOnboardingStore } from "@/stores/onboardingStore";
@@ -12,15 +12,6 @@ export default function RegisterPage() {
   const { setVerifiedAt, reset, isComplete } = useOnboardingStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // If already completed onboarding → go to dashboard
-  if (isComplete && isAuthenticated) {
-    navigate("/", { replace: true });
-    return null;
-  }
-
-  // Reset any previous incomplete session when landing on register
-  reset();
-
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +19,17 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Already done onboarding → go to dashboard
+    if (isComplete && isAuthenticated) {
+      navigate("/", { replace: true });
+      return;
+    }
+    // Clear any previous incomplete session on landing /register
+    reset();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Step 1: submit email + password ──────────────────────────────
   const handleRegister = async (e: React.FormEvent) => {
@@ -64,7 +66,7 @@ export default function RegisterPage() {
       const res = await fetch(`${API}/auth/check-verified?email=${encodeURIComponent(email)}`);
       const data = await res.json();
       if (data.isVerified) {
-        setVerifiedAt(Date.now()); // start 15-min registration session
+        setVerifiedAt(Date.now()); // start 15-min session
         navigate("/onboarding");
       } else {
         setError("Email ещё не подтверждён. Проверьте почту и перейдите по ссылке.");
@@ -92,7 +94,10 @@ export default function RegisterPage() {
           {step === 2 && (
             <>
               <h1 className="mt-3 text-3xl font-semibold text-white">Подтвердите email</h1>
-              <p className="mt-2 text-sm text-white/60">Мы отправили письмо на{" "}<span className="text-white font-medium">{email}</span></p>
+              <p className="mt-2 text-sm text-white/60">
+                Мы отправили письмо на{" "}
+                <span className="text-white font-medium">{email}</span>
+              </p>
             </>
           )}
         </div>
@@ -154,7 +159,8 @@ export default function RegisterPage() {
                   </p>
                 </div>
                 <p className="text-xs text-white/50 leading-relaxed">
-                  Откройте письмо от MBE и нажмите кнопку <strong className="text-white/70">«Подтвердить email»</strong>. После этого вернитесь сюда.
+                  Откройте письмо от MBE и нажмите кнопку{" "}
+                  <strong className="text-white/70">«Подтвердить email»</strong>. После этого вернитесь сюда.
                 </p>
               </div>
 
@@ -167,7 +173,8 @@ export default function RegisterPage() {
                   : <><CheckCircle className="h-4 w-4" /> Я перешёл по ссылке — проверить статус</>}
               </button>
 
-              <button onClick={() => setStep(1)} className="w-full text-sm text-white/40 hover:text-white/60 transition-colors">
+              <button onClick={() => { setStep(1); setError(null); }}
+                className="w-full text-sm text-white/40 hover:text-white/60 transition-colors">
                 ← Изменить email
               </button>
             </div>
