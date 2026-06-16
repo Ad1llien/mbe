@@ -1,24 +1,21 @@
-﻿import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mail, Lock, Loader2, ArrowRight, Building2, Phone, MessageCircle, User as UserIcon, Gift } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight, Building2, User as UserIcon, Gift } from "lucide-react";
 import { API } from "@/lib/config";
 
 const schema = z.object({
   fullName: z.string().trim().min(2, "Введите ваше имя"),
   companyName: z.string().trim().min(2, "Укажите название компании"),
   email: z.string().trim().email("Введите корректный email"),
-  phone: z.string().trim().regex(/^\+?[0-9\s\-()]{10,20}$/, "Введите корректный номер телефона"),
   password: z.string().min(6, "Минимум 6 символов"),
   confirm: z.string().min(6, "Подтвердите пароль"),
-  deliveryMethod: z.enum(["email", "whatsapp"]),
   agree: z.literal(true, { errorMap: () => ({ message: "Необходимо согласие" }) }),
 }).refine((d) => d.password === d.confirm, { message: "Пароли не совпадают", path: ["confirm"] });
 
 type FormValues = z.infer<typeof schema>;
-type Delivery = "email" | "whatsapp";
 
 const inputCls = "w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-white placeholder-white/30 outline-none transition-colors focus:border-white/40";
 
@@ -42,9 +39,9 @@ export default function RegisterPage() {
   const [refCode, setRefCode] = useState(() => new URLSearchParams(window.location.search).get("ref") || "");
   const [refValid, setRefValid] = useState<boolean | null>(null);
 
-  const { register, handleSubmit, control, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { fullName: "", companyName: "", email: "", phone: "", password: "", confirm: "", deliveryMethod: "whatsapp", agree: false as unknown as true },
+    defaultValues: { fullName: "", companyName: "", email: "", password: "", confirm: "", agree: false as unknown as true },
   });
 
   const checkRefCode = async (code: string) => {
@@ -56,13 +53,20 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
     try {
-      await fetch(`${API}/auth/register`, {
+      const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: data.email, password: data.password, refCode: refCode || undefined }),
       });
-      setToast(refCode && refValid ? "🎁 Промокод применён! +$15 бонус рефереру" : "Письмо с подтверждением отправлено");
-      setTimeout(() => navigate("/onboarding"), 1000);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setToast(err.message || "Ошибка регистрации");
+        return;
+      }
+      setToast(refCode && refValid ? "🎁 Промокод применён! Проверьте email для подтверждения" : "✉️ Письмо с подтверждением отправлено на " + data.email);
+      setTimeout(() => navigate("/login"), 3000);
+    } catch {
+      setToast("Ошибка соединения с сервером");
     } finally {
       setLoading(false);
     }
@@ -81,20 +85,19 @@ export default function RegisterPage() {
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md sm:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Field label="Ваше имя" error={errors.fullName?.message} icon={UserIcon}>
-              <input {...register("fullName")} placeholder="Иван Иванов" className={inputCls} />
-            </Field>
-            <Field label="Название юр. лица (ТОО / ИП)" error={errors.companyName?.message} icon={Building2}>
-              <input {...register("companyName")} placeholder='ТОО "Моя Компания"' className={inputCls} />
-            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Email" error={errors.email?.message} icon={Mail}>
-                <input type="email" autoComplete="email" {...register("email")} placeholder="you@company.com" className={inputCls} />
+              <Field label="Ваше имя" error={errors.fullName?.message} icon={UserIcon}>
+                <input {...register("fullName")} placeholder="Иван Иванов" className={inputCls} />
               </Field>
-              <Field label="Телефон" error={errors.phone?.message} icon={Phone}>
-                <input type="tel" autoComplete="tel" {...register("phone")} placeholder="+7 (777) 123-45-67" className={inputCls} />
+              <Field label="Название юр. лица (ТОО / ИП)" error={errors.companyName?.message} icon={Building2}>
+                <input {...register("companyName")} placeholder='ТОО "Компания"' className={inputCls} />
               </Field>
             </div>
+
+            <Field label="Email" error={errors.email?.message} icon={Mail}>
+              <input type="email" autoComplete="email" {...register("email")} placeholder="you@company.com" className={inputCls} />
+            </Field>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Пароль" error={errors.password?.message} icon={Lock}>
                 <input type="password" autoComplete="new-password" {...register("password")} placeholder="••••••••" className={inputCls} />
@@ -104,23 +107,11 @@ export default function RegisterPage() {
               </Field>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-medium uppercase tracking-wider text-white/60">Куда отправить код подтверждения?</label>
-              <Controller name="deliveryMethod" control={control} render={({ field }) => (
-                <div className="grid grid-cols-2 gap-2">
-                  {([{ key: "whatsapp", label: "WhatsApp", Icon: MessageCircle }, { key: "email", label: "Email", Icon: Mail }] as { key: Delivery; label: string; Icon: typeof Mail }[]).map(({ key, label, Icon }) => (
-                    <button type="button" key={key} onClick={() => field.onChange(key)}
-                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium transition-all ${field.value === key ? "border-white bg-white text-black" : "border-white/10 bg-white/5 text-white/80 hover:border-white/40"}`}>
-                      <Icon className="h-4 w-4" />{label}
-                    </button>
-                  ))}
-                </div>
-              )} />
-            </div>
-
-            {/* Promo/referral code */}
+            {/* Referral code */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium uppercase tracking-wider text-white/60">Промокод <span className="normal-case text-white/30">(необязательно)</span></label>
+              <label className="text-xs font-medium uppercase tracking-wider text-white/60">
+                Промокод <span className="normal-case text-white/30">(необязательно)</span>
+              </label>
               <div className="relative">
                 <Gift className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                 <input
