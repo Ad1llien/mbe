@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Mail, Lock, Loader2, ArrowRight, CheckCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Mail, Lock, Loader2, ArrowRight, CheckCircle, RefreshCw } from "lucide-react";
 import { API } from "@/lib/config";
 import { useOnboardingStore } from "@/stores/onboardingStore";
 import { useAuthStore } from "@/store/authStore";
@@ -18,7 +18,29 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Resend cooldown (15 min = 900s)
+  const COOLDOWN = 15 * 60;
+  const [cooldown, setCooldown] = useState(COOLDOWN);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCooldown = () => {
+    setCooldown(COOLDOWN);
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
+
+  const cooldownMM = String(Math.floor(cooldown / 60)).padStart(2, "0");
+  const cooldownSS = String(cooldown % 60).padStart(2, "0");
 
   useEffect(() => {
     // Already done onboarding → go to dashboard
@@ -51,10 +73,31 @@ export default function RegisterPage() {
         return;
       }
       setStep(2);
+      startCooldown();
     } catch {
       setError("Ошибка соединения с сервером");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Resend verification email ─────────────────────────────────────
+  const handleResend = async () => {
+    setResending(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/auth/resend-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.message || "Ошибка повторной отправки"); return; }
+      startCooldown(); // restart 15-min timer
+    } catch {
+      setError("Ошибка соединения с сервером");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -173,7 +216,24 @@ export default function RegisterPage() {
                   : <><CheckCircle className="h-4 w-4" /> Я перешёл по ссылке — проверить статус</>}
               </button>
 
-              <button onClick={() => { setStep(1); setError(null); }}
+              {/* Resend cooldown */}
+              <div className="text-center">
+                {cooldown > 0 ? (
+                  <p className="text-xs text-white/40">
+                    Повторная отправка через{" "}
+                    <span className="font-mono text-white/60">{cooldownMM}:{cooldownSS}</span>
+                  </p>
+                ) : (
+                  <button onClick={handleResend} disabled={resending}
+                    className="flex items-center gap-1.5 mx-auto text-sm text-white/60 hover:text-white transition-colors disabled:opacity-40">
+                    {resending
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Отправляем...</>
+                      : <><RefreshCw className="h-3 w-3" /> Отправить письмо повторно</>}
+                  </button>
+                )}
+              </div>
+
+              <button onClick={() => { setStep(1); setError(null); if (cooldownRef.current) clearInterval(cooldownRef.current); }}
                 className="w-full text-sm text-white/40 hover:text-white/60 transition-colors">
                 ← Изменить email
               </button>

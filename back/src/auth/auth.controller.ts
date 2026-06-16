@@ -49,6 +49,11 @@ checkVerified(@Query('email') email: string) {
   return this.authService.checkVerified(email);
 }
 
+@Post('resend-verification')
+resendVerification(@Body() body: { email: string }) {
+  return this.authService.resendVerification(body.email);
+}
+
 // Debug: GET /auth/test-email?to=someone@example.com
 @Get('test-email')
 testEmail(@Query('to') to: string) {

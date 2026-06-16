@@ -6,6 +6,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport'; // Добавь это
 import { JwtStrategy } from './jwt.strategy';     // И это
 import { EmailService } from 'src/email/email.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 @Module({
   imports: [
     UsersModule,
@@ -18,6 +19,6 @@ import { EmailService } from 'src/email/email.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, EmailService], // ДОБАВЬ JwtStrategy СЮДА
+  providers: [AuthService, JwtStrategy, EmailService, PrismaService],
 })
 export class AuthModule {}
