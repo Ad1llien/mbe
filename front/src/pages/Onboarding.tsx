@@ -79,8 +79,8 @@ export default function OnboardingPage() {
         </div>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-md sm:p-8">
-          {step === 1 && <Step1 />}
-          {step === 2 && <Step2 />}
+          {step === 1 && <Step2 />}
+          {step === 2 && <Step1 />}
           {step === 3 && <Step3 />}
         </section>
 
